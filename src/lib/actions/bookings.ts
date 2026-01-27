@@ -218,25 +218,31 @@ export async function assignJobToSelf(
   try {
     const user = await requireRole(["ENGINEER", "ADMIN"]);
 
-    const booking = await db.booking.findUnique({
-      where: { id: bookingId },
-    });
-
-    if (!booking) {
-      return { success: false, error: "Booking not found" };
-    }
-
-    if (booking.engineerId) {
-      return { success: false, error: "Job already assigned" };
-    }
-
-    await db.booking.update({
-      where: { id: bookingId },
+    // Use atomic update with condition to prevent race conditions
+    // Only updates if engineerId is null (unassigned)
+    const result = await db.booking.updateMany({
+      where: {
+        id: bookingId,
+        engineerId: null, // Only assign if not already assigned
+      },
       data: {
         engineerId: user.id,
         status: "CONFIRMED",
       },
     });
+
+    if (result.count === 0) {
+      // Either booking doesn't exist or already assigned
+      const booking = await db.booking.findUnique({
+        where: { id: bookingId },
+      });
+
+      if (!booking) {
+        return { success: false, error: "Booking not found" };
+      }
+
+      return { success: false, error: "Job already assigned to another engineer" };
+    }
 
     revalidatePath("/engineer");
     revalidatePath("/engineer/jobs");
@@ -393,6 +399,15 @@ export async function assignEngineerToBooking(
   }
 }
 
+// Valid status transitions
+const VALID_STATUS_TRANSITIONS: Record<BookingStatus, BookingStatus[]> = {
+  PENDING: ["CONFIRMED", "CANCELLED"],
+  CONFIRMED: ["IN_PROGRESS", "CANCELLED", "PENDING"],
+  IN_PROGRESS: ["COMPLETED", "CANCELLED"],
+  COMPLETED: [], // No transitions from completed
+  CANCELLED: ["PENDING"], // Can reopen a cancelled booking
+};
+
 export async function updateBookingStatus(
   bookingId: string,
   status: BookingStatus
@@ -400,9 +415,36 @@ export async function updateBookingStatus(
   try {
     await requireRole(["ADMIN"]);
 
+    const booking = await db.booking.findUnique({
+      where: { id: bookingId },
+    });
+
+    if (!booking) {
+      return { success: false, error: "Booking not found" };
+    }
+
+    // Validate status transition
+    const allowedTransitions = VALID_STATUS_TRANSITIONS[booking.status];
+    if (!allowedTransitions.includes(status)) {
+      return {
+        success: false,
+        error: `Cannot change status from ${booking.status} to ${status}`,
+      };
+    }
+
+    // Update with appropriate timestamps
+    const updateData: { status: BookingStatus; startedAt?: Date; completedAt?: Date } = { status };
+
+    if (status === "IN_PROGRESS" && !booking.startedAt) {
+      updateData.startedAt = new Date();
+    }
+    if (status === "COMPLETED" && !booking.completedAt) {
+      updateData.completedAt = new Date();
+    }
+
     await db.booking.update({
       where: { id: bookingId },
-      data: { status },
+      data: updateData,
     });
 
     revalidatePath("/admin/bookings");

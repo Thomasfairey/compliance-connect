@@ -8,6 +8,24 @@ import type { Asset } from "@prisma/client";
 import type { CreateAssetInput } from "@/types";
 
 export async function getBookingAssets(bookingId: string): Promise<Asset[]> {
+  const user = await requireRole(["CUSTOMER", "ENGINEER", "ADMIN"]);
+
+  // Verify user has access to this booking
+  const booking = await db.booking.findFirst({
+    where: {
+      id: bookingId,
+      OR: [
+        { customerId: user.id },
+        { engineerId: user.id },
+        ...(user.role === "ADMIN" ? [{}] : []),
+      ],
+    },
+  });
+
+  if (!booking) {
+    return [];
+  }
+
   const assets = await db.asset.findMany({
     where: { bookingId },
     orderBy: { testedAt: "asc" },
