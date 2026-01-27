@@ -24,11 +24,11 @@ export async function createAsset(
     const user = await requireRole(["ENGINEER", "ADMIN"]);
     const validated = assetSchema.parse(input);
 
-    // Verify booking belongs to engineer
+    // Verify booking belongs to engineer (admins can also add assets)
     const booking = await db.booking.findFirst({
       where: {
         id: bookingId,
-        OR: [{ engineerId: user.id }, { customer: { role: "ADMIN" } }],
+        ...(user.role === "ADMIN" ? {} : { engineerId: user.id }),
       },
     });
 
@@ -142,7 +142,7 @@ export async function bulkCreateAssets(
     const booking = await db.booking.findFirst({
       where: {
         id: bookingId,
-        OR: [{ engineerId: user.id }, { customer: { role: "ADMIN" } }],
+        ...(user.role === "ADMIN" ? {} : { engineerId: user.id }),
       },
     });
 

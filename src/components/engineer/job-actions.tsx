@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, Play, CheckCircle2, UserPlus } from "lucide-react";
+import { Loader2, PlayCircle, CheckCircle, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -78,7 +78,9 @@ export function JobActions({
   async function handleComplete() {
     setLoading(true);
     try {
-      const result = await completeJob(bookingId, { engineerNotes });
+      const result = await completeJob(bookingId, {
+        engineerNotes: engineerNotes || undefined,
+      });
       if (result.success) {
         toast.success("Job completed successfully!");
         setCompleteDialogOpen(false);
@@ -115,7 +117,7 @@ export function JobActions({
           {loading ? (
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
           ) : (
-            <Play className="h-4 w-4 mr-2" />
+            <PlayCircle className="h-4 w-4 mr-2" />
           )}
           Start Job
         </Button>
@@ -125,7 +127,7 @@ export function JobActions({
         <Dialog open={completeDialogOpen} onOpenChange={setCompleteDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-green-600 hover:bg-green-700">
-              <CheckCircle2 className="h-4 w-4 mr-2" />
+              <CheckCircle className="h-4 w-4 mr-2" />
               Complete Job
             </Button>
           </DialogTrigger>
@@ -137,14 +139,14 @@ export function JobActions({
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              <div>
-                <Label htmlFor="notes">Notes (Optional)</Label>
+              <div className="space-y-2">
+                <Label htmlFor="notes">Engineer Notes (Optional)</Label>
                 <Textarea
                   id="notes"
-                  placeholder="Any observations or issues to report..."
+                  placeholder="Any observations, issues, or recommendations..."
                   value={engineerNotes}
                   onChange={(e) => setEngineerNotes(e.target.value)}
-                  className="mt-2"
+                  rows={4}
                 />
               </div>
             </div>
@@ -162,7 +164,7 @@ export function JobActions({
                 className="bg-green-600 hover:bg-green-700"
               >
                 {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Complete
+                Mark Complete
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -170,8 +172,8 @@ export function JobActions({
       )}
 
       {isAssignedToMe && status === "IN_PROGRESS" && !canComplete && (
-        <p className="text-sm text-amber-600">
-          Add at least one test result to complete this job
+        <p className="text-sm text-amber-600 flex items-center">
+          Add at least one test result to complete the job
         </p>
       )}
     </div>

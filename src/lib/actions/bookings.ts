@@ -31,13 +31,28 @@ export async function getBookingById(
 ): Promise<BookingWithRelations | null> {
   const user = await requireUser();
 
+  // Admins can view any booking
+  if (user.role === "ADMIN") {
+    const booking = await db.booking.findUnique({
+      where: { id },
+      include: {
+        customer: true,
+        site: true,
+        service: true,
+        engineer: true,
+        assets: true,
+      },
+    });
+    return booking;
+  }
+
+  // Non-admins can only view their own bookings (as customer or engineer)
   const booking = await db.booking.findFirst({
     where: {
       id,
       OR: [
         { customerId: user.id },
         { engineerId: user.id },
-        { customer: { role: "ADMIN" } },
       ],
     },
     include: {

@@ -35,6 +35,7 @@ import type { BookingStep, BookingWizardData } from "@/types";
 interface BookingWizardProps {
   services: Service[];
   sites: Site[];
+  initialSiteId?: string;
 }
 
 const serviceIcons: Record<string, typeof Zap> = {
@@ -67,11 +68,17 @@ const slideVariants = {
   }),
 };
 
-export function BookingWizard({ services, sites: initialSites }: BookingWizardProps) {
+export function BookingWizard({ services, sites: initialSites, initialSiteId }: BookingWizardProps) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [direction, setDirection] = useState(0);
-  const [data, setData] = useState<BookingWizardData>({});
+  const [data, setData] = useState<BookingWizardData>(() => {
+    // Pre-select site if initialSiteId is provided and valid
+    if (initialSiteId && initialSites.some(s => s.id === initialSiteId)) {
+      return { siteId: initialSiteId };
+    }
+    return {};
+  });
   const [sites, setSites] = useState(initialSites);
   const [loading, setLoading] = useState(false);
   const [showNewSite, setShowNewSite] = useState(false);

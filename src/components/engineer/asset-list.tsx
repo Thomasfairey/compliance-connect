@@ -2,11 +2,21 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { Loader2, Trash2, CheckCircle2, XCircle, MinusCircle } from "lucide-react";
+import { Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { deleteAsset } from "@/lib/actions";
 import type { Asset } from "@prisma/client";
 
@@ -27,7 +37,7 @@ export function AssetList({ assets, canEdit }: AssetListProps) {
         toast.success("Asset removed");
         router.refresh();
       } else {
-        toast.error(result.error || "Failed to remove asset");
+        toast.error(result.error || "Failed to delete asset");
       }
     } catch {
       toast.error("An error occurred");
@@ -39,71 +49,43 @@ export function AssetList({ assets, canEdit }: AssetListProps) {
   if (assets.length === 0) {
     return (
       <div className="text-center py-8 text-gray-500">
-        <p>No test results recorded yet</p>
+        <p>No test results recorded yet.</p>
+        {canEdit && (
+          <p className="text-sm mt-1">Add items above as you test them.</p>
+        )}
       </div>
     );
   }
 
-  const passCount = assets.filter((a) => a.status === "PASS").length;
-  const failCount = assets.filter((a) => a.status === "FAIL").length;
-  const naCount = assets.filter((a) => a.status === "N/A").length;
-
   return (
-    <div>
-      {/* Summary */}
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <div className="p-3 bg-green-50 rounded-xl text-center">
-          <CheckCircle2 className="h-5 w-5 text-green-600 mx-auto mb-1" />
-          <p className="text-lg font-semibold text-green-700">{passCount}</p>
-          <p className="text-xs text-green-600">Passed</p>
-        </div>
-        <div className="p-3 bg-red-50 rounded-xl text-center">
-          <XCircle className="h-5 w-5 text-red-600 mx-auto mb-1" />
-          <p className="text-lg font-semibold text-red-700">{failCount}</p>
-          <p className="text-xs text-red-600">Failed</p>
-        </div>
-        <div className="p-3 bg-gray-50 rounded-xl text-center">
-          <MinusCircle className="h-5 w-5 text-gray-600 mx-auto mb-1" />
-          <p className="text-lg font-semibold text-gray-700">{naCount}</p>
-          <p className="text-xs text-gray-600">N/A</p>
-        </div>
-      </div>
+    <div className="space-y-3">
+      {assets.map((asset) => (
+        <div
+          key={asset.id}
+          className="flex items-center justify-between p-4 rounded-lg border border-gray-100 bg-gray-50"
+        >
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 mb-1">
+              <p className="font-medium text-gray-900 truncate">{asset.name}</p>
+              <StatusBadge status={asset.status} />
+            </div>
+            <p className="text-sm text-gray-500">{asset.location}</p>
+            {asset.assetTag && (
+              <p className="text-xs text-gray-400 mt-1">Tag: {asset.assetTag}</p>
+            )}
+            {asset.notes && (
+              <p className="text-sm text-gray-600 mt-2">{asset.notes}</p>
+            )}
+          </div>
 
-      {/* Asset List */}
-      <div className="space-y-2">
-        <AnimatePresence>
-          {assets.map((asset) => (
-            <motion.div
-              key={asset.id}
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, x: -100 }}
-              className="flex items-center justify-between p-3 rounded-xl border border-gray-100 hover:bg-gray-50"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="font-medium text-gray-900 truncate">
-                    {asset.name}
-                  </p>
-                  <StatusBadge status={asset.status} />
-                </div>
-                <p className="text-sm text-gray-500 truncate">{asset.location}</p>
-                {asset.assetTag && (
-                  <p className="text-xs text-gray-400">Tag: {asset.assetTag}</p>
-                )}
-                {asset.notes && (
-                  <p className="text-xs text-gray-400 mt-1 truncate">
-                    {asset.notes}
-                  </p>
-                )}
-              </div>
-              {canEdit && (
+          {canEdit && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
                 <Button
                   variant="ghost"
-                  size="icon"
-                  onClick={() => handleDelete(asset.id)}
+                  size="sm"
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50 ml-2"
                   disabled={deletingId === asset.id}
-                  className="text-gray-400 hover:text-red-600"
                 >
                   {deletingId === asset.id ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -111,10 +93,47 @@ export function AssetList({ assets, canEdit }: AssetListProps) {
                     <Trash2 className="h-4 w-4" />
                   )}
                 </Button>
-              )}
-            </motion.div>
-          ))}
-        </AnimatePresence>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Test Result</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to remove this test result? This action
+                    cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => handleDelete(asset.id)}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
+      ))}
+
+      <div className="pt-4 border-t">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-500">Total Items Tested</span>
+          <span className="font-semibold">{assets.length}</span>
+        </div>
+        <div className="flex items-center justify-between text-sm mt-1">
+          <span className="text-gray-500">Passed</span>
+          <span className="font-semibold text-green-600">
+            {assets.filter((a) => a.status === "PASS").length}
+          </span>
+        </div>
+        <div className="flex items-center justify-between text-sm mt-1">
+          <span className="text-gray-500">Failed</span>
+          <span className="font-semibold text-red-600">
+            {assets.filter((a) => a.status === "FAIL").length}
+          </span>
+        </div>
       </div>
     </div>
   );
