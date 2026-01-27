@@ -26,8 +26,8 @@ export function PageHeader({
     >
       <div className="flex items-start gap-4">
         {backHref && (
-          <Link href={backHref}>
-            <Button variant="ghost" size="icon" className="mt-0.5">
+          <Link href={backHref} aria-label="Go back">
+            <Button variant="ghost" size="icon" className="mt-0.5" aria-label="Go back">
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
