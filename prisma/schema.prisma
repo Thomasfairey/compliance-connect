@@ -1,0 +1,133 @@
+// Compliance Connect - Prisma Schema
+// PostgreSQL hosted on Supabase
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  CUSTOMER
+  ENGINEER
+  ADMIN
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  clerkId       String    @unique
+  name          String
+  email         String    @unique
+  role          Role      @default(CUSTOMER)
+  companyName   String?
+  phone         String?
+  avatarUrl     String?
+  sites         Site[]
+  bookings      Booking[] @relation("CustomerBookings")
+  assignments   Booking[] @relation("EngineerBookings")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Site {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String    // e.g., "London HQ"
+  address     String
+  postcode    String
+  accessNotes String?
+  bookings    Booking[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Service {
+  id          String    @id @default(cuid())
+  name        String    // e.g., "PAT Testing"
+  slug        String    @unique // e.g., "pat-testing"
+  description String
+  basePrice   Float     // Per unit price
+  minCharge   Float     // Minimum visit charge
+  unitName    String    // e.g., "item"
+  icon        String?   // Lucide icon name
+  isActive    Boolean   @default(true)
+  bookings    Booking[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Booking {
+  id            String        @id @default(cuid())
+  reference     String        @unique @default(cuid())
+  status        BookingStatus @default(PENDING)
+
+  customerId    String
+  customer      User          @relation("CustomerBookings", fields: [customerId], references: [id], onDelete: Cascade)
+
+  siteId        String
+  site          Site          @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  serviceId     String
+  service       Service       @relation(fields: [serviceId], references: [id])
+
+  scheduledDate DateTime
+  slot          String        // "AM" or "PM"
+
+  estimatedQty  Int
+  quotedPrice   Float
+
+  engineerId    String?
+  engineer      User?         @relation("EngineerBookings", fields: [engineerId], references: [id])
+
+  // Additional notes from customer
+  notes         String?
+
+  // Execution Data
+  startedAt     DateTime?
+  completedAt   DateTime?
+  certificateUrl String?
+
+  // Engineer uploaded documents
+  engineerNotes String?
+  uploadedDocsUrl String?
+
+  assets        Asset[]
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([customerId])
+  @@index([engineerId])
+  @@index([status])
+  @@index([scheduledDate])
+}
+
+model Asset {
+  id          String   @id @default(cuid())
+  bookingId   String
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  assetTag    String?  // Unique identifier for the asset
+  name        String   // e.g., "Kettle"
+  location    String   // e.g., "Kitchen"
+  status      String   // "PASS" | "FAIL" | "N/A"
+  notes       String?
+  imageUrl    String?
+  testedAt    DateTime @default(now())
+
+  @@index([bookingId])
+}
