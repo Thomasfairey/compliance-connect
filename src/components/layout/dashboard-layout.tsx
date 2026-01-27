@@ -42,7 +42,7 @@ const engineerNavItems = [
 const adminNavItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/bookings", label: "All Bookings", icon: Calendar },
-  { href: "/admin/engineers", label: "Engineers", icon: Wrench },
+  { href: "/admin/engineers", label: "Users", icon: Users },
   { href: "/admin/services", label: "Services", icon: Settings },
 ];
 
