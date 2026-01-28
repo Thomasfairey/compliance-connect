@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -19,16 +19,18 @@ import {
   Calendar,
   Clock,
   Package,
+  Sparkles,
+  Timer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn, formatPrice, calculateQuote } from "@/lib/utils";
-import { createBooking, createSite } from "@/lib/actions";
+import { createBooking, createSite, getAvailableDiscount } from "@/lib/actions";
 import type { Service, Site } from "@prisma/client";
 import type { BookingStep, BookingWizardData } from "@/types";
 
@@ -68,12 +70,18 @@ const slideVariants = {
   }),
 };
 
+type PricingInfo = {
+  originalPrice: number;
+  discountPercent: number;
+  discountedPrice: number;
+  discountReason?: string;
+} | null;
+
 export function BookingWizard({ services, sites: initialSites, initialSiteId }: BookingWizardProps) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [direction, setDirection] = useState(0);
   const [data, setData] = useState<BookingWizardData>(() => {
-    // Pre-select site if initialSiteId is provided and valid
     if (initialSiteId && initialSites.some(s => s.id === initialSiteId)) {
       return { siteId: initialSiteId };
     }
@@ -82,6 +90,7 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
   const [sites, setSites] = useState(initialSites);
   const [loading, setLoading] = useState(false);
   const [showNewSite, setShowNewSite] = useState(false);
+  const isSubmittingRef = useRef(false);
   const [newSite, setNewSite] = useState({
     name: "",
     address: "",
@@ -89,12 +98,52 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
     accessNotes: "",
   });
 
+  // Dynamic pricing state
+  const [pricingInfo, setPricingInfo] = useState<PricingInfo>(null);
+  const [loadingPricing, setLoadingPricing] = useState(false);
+
   const selectedService = services.find((s) => s.id === data.serviceId);
   const selectedSite = sites.find((s) => s.id === data.siteId);
 
   const quotedPrice = selectedService && data.estimatedQty
     ? calculateQuote(selectedService.basePrice, selectedService.minCharge, data.estimatedQty)
     : 0;
+
+  // Calculate estimated duration
+  const estimatedDuration = selectedService && data.estimatedQty
+    ? Math.ceil(selectedService.baseMinutes + selectedService.minutesPerUnit * data.estimatedQty)
+    : 0;
+
+  const formatDuration = (minutes: number) => {
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  };
+
+  // Fetch dynamic pricing when schedule is selected
+  useEffect(() => {
+    const fetchPricing = async () => {
+      if (data.serviceId && data.siteId && data.scheduledDate && data.estimatedQty) {
+        setLoadingPricing(true);
+        try {
+          const pricing = await getAvailableDiscount(
+            data.serviceId,
+            data.siteId,
+            data.scheduledDate,
+            data.estimatedQty
+          );
+          setPricingInfo(pricing);
+        } catch (error) {
+          console.error("Failed to fetch pricing:", error);
+          setPricingInfo(null);
+        }
+        setLoadingPricing(false);
+      }
+    };
+
+    fetchPricing();
+  }, [data.serviceId, data.siteId, data.scheduledDate, data.estimatedQty]);
 
   const canProceed = useCallback(() => {
     switch (steps[currentStep].id) {
@@ -133,7 +182,12 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
       return;
     }
 
+    if (isSubmittingRef.current || loading) {
+      return;
+    }
+    isSubmittingRef.current = true;
     setLoading(true);
+
     try {
       const result = await createBooking({
         serviceId: data.serviceId,
@@ -149,9 +203,11 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
         router.push(`/bookings/${result.data.id}`);
       } else {
         toast.error(result.error || "Failed to create booking");
+        isSubmittingRef.current = false;
       }
     } catch {
       toast.error("An error occurred");
+      isSubmittingRef.current = false;
     } finally {
       setLoading(false);
     }
@@ -182,6 +238,9 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
     }
   };
 
+  const finalPrice = pricingInfo?.discountedPrice ?? quotedPrice;
+  const hasDiscount = pricingInfo && pricingInfo.discountPercent > 0;
+
   return (
     <div className="max-w-3xl mx-auto">
       {/* Progress */}
@@ -193,10 +252,10 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
                 className={cn(
                   "w-10 h-10 rounded-full flex items-center justify-center font-medium transition-all",
                   index < currentStep
-                    ? "bg-green-500 text-white"
+                    ? "gradient-primary text-white"
                     : index === currentStep
-                    ? "bg-black text-white"
-                    : "bg-gray-100 text-gray-400"
+                    ? "bg-primary text-white"
+                    : "bg-muted text-muted-foreground"
                 )}
               >
                 {index < currentStep ? (
@@ -208,8 +267,8 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
               {index < steps.length - 1 && (
                 <div
                   className={cn(
-                    "hidden sm:block w-12 lg:w-24 h-0.5 mx-2",
-                    index < currentStep ? "bg-green-500" : "bg-gray-200"
+                    "hidden sm:block w-12 lg:w-24 h-0.5 mx-2 transition-all",
+                    index < currentStep ? "bg-primary" : "bg-muted"
                   )}
                 />
               )}
@@ -217,10 +276,10 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
           ))}
         </div>
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-gray-900">
+          <h2 className="text-xl font-semibold text-foreground">
             {steps[currentStep].title}
           </h2>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             {steps[currentStep].description}
           </p>
         </div>
@@ -249,31 +308,34 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
                     <Card
                       key={service.id}
                       className={cn(
-                        "cursor-pointer transition-all hover:shadow-md",
+                        "cursor-pointer transition-all hover:shadow-lg",
                         isSelected
-                          ? "border-2 border-black ring-1 ring-black"
-                          : "border-gray-100 hover:border-gray-200"
+                          ? "border-2 border-primary ring-2 ring-primary/20"
+                          : "border-border hover:border-primary/50"
                       )}
                       onClick={() => setData({ ...data, serviceId: service.id })}
                     >
                       <CardContent className="p-6">
                         <div className="flex items-start justify-between mb-4">
-                          <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
-                            <Icon className="h-6 w-6 text-gray-900" />
+                          <div className={cn(
+                            "w-12 h-12 rounded-xl flex items-center justify-center transition-all",
+                            isSelected ? "gradient-primary" : "bg-muted"
+                          )}>
+                            <Icon className={cn("h-6 w-6", isSelected ? "text-white" : "text-foreground")} />
                           </div>
                           {isSelected && (
-                            <div className="w-6 h-6 bg-black rounded-full flex items-center justify-center">
+                            <div className="w-6 h-6 gradient-primary rounded-full flex items-center justify-center">
                               <Check className="h-4 w-4 text-white" />
                             </div>
                           )}
                         </div>
-                        <h3 className="font-semibold text-gray-900 mb-1">
+                        <h3 className="font-semibold text-foreground mb-1">
                           {service.name}
                         </h3>
-                        <p className="text-sm text-gray-500 mb-3">
+                        <p className="text-sm text-muted-foreground mb-3">
                           {service.description}
                         </p>
-                        <p className="text-sm font-medium">
+                        <p className="text-sm font-medium text-primary">
                           From {formatPrice(service.minCharge)}
                         </p>
                       </CardContent>
@@ -289,7 +351,7 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
                 {showNewSite ? (
                   <Card>
                     <CardContent className="p-6 space-y-4">
-                      <h3 className="font-semibold text-gray-900">Add New Site</h3>
+                      <h3 className="font-semibold text-foreground">Add New Site</h3>
                       <div className="space-y-4">
                         <div>
                           <Label htmlFor="name">Site Name *</Label>
@@ -300,6 +362,7 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
                             onChange={(e) =>
                               setNewSite({ ...newSite, name: e.target.value })
                             }
+                            className="h-12"
                           />
                         </div>
                         <div>
@@ -311,6 +374,7 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
                             onChange={(e) =>
                               setNewSite({ ...newSite, address: e.target.value })
                             }
+                            className="h-12"
                           />
                         </div>
                         <div>
@@ -322,6 +386,7 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
                             onChange={(e) =>
                               setNewSite({ ...newSite, postcode: e.target.value })
                             }
+                            className="h-12"
                           />
                         </div>
                         <div>
@@ -340,14 +405,14 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
                             variant="outline"
                             onClick={() => setShowNewSite(false)}
                             disabled={loading}
-                            className="flex-1"
+                            className="flex-1 h-12"
                           >
                             Cancel
                           </Button>
                           <Button
                             onClick={handleCreateSite}
                             disabled={loading}
-                            className="flex-1"
+                            className="flex-1 h-12 gradient-primary text-white"
                           >
                             {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                             Add Site
@@ -365,33 +430,36 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
                         <Card
                           key={site.id}
                           className={cn(
-                            "cursor-pointer transition-all hover:shadow-md",
+                            "cursor-pointer transition-all hover:shadow-lg",
                             isSelected
-                              ? "border-2 border-black ring-1 ring-black"
-                              : "border-gray-100 hover:border-gray-200"
+                              ? "border-2 border-primary ring-2 ring-primary/20"
+                              : "border-border hover:border-primary/50"
                           )}
                           onClick={() => setData({ ...data, siteId: site.id })}
                         >
                           <CardContent className="p-4 sm:p-6">
                             <div className="flex items-start justify-between">
                               <div className="flex items-start gap-3">
-                                <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                  <MapPin className="h-5 w-5 text-gray-600" />
+                                <div className={cn(
+                                  "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 transition-all",
+                                  isSelected ? "gradient-primary" : "bg-muted"
+                                )}>
+                                  <MapPin className={cn("h-5 w-5", isSelected ? "text-white" : "text-muted-foreground")} />
                                 </div>
                                 <div>
-                                  <h3 className="font-semibold text-gray-900">
+                                  <h3 className="font-semibold text-foreground">
                                     {site.name}
                                   </h3>
-                                  <p className="text-sm text-gray-500">
+                                  <p className="text-sm text-muted-foreground">
                                     {site.address}
                                   </p>
-                                  <p className="text-sm text-gray-400">
+                                  <p className="text-sm text-muted-foreground/70">
                                     {site.postcode}
                                   </p>
                                 </div>
                               </div>
                               {isSelected && (
-                                <div className="w-6 h-6 bg-black rounded-full flex items-center justify-center">
+                                <div className="w-6 h-6 gradient-primary rounded-full flex items-center justify-center">
                                   <Check className="h-4 w-4 text-white" />
                                 </div>
                               )}
@@ -403,7 +471,7 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
 
                     <Button
                       variant="outline"
-                      className="w-full h-16 border-dashed"
+                      className="w-full h-16 border-dashed border-2 hover:border-primary hover:bg-primary/5"
                       onClick={() => setShowNewSite(true)}
                     >
                       <Plus className="h-5 w-5 mr-2" />
@@ -422,7 +490,7 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
                     <Label htmlFor="quantity">
                       Estimated Number of {selectedService.unitName}s *
                     </Label>
-                    <p className="text-sm text-gray-500 mb-2">
+                    <p className="text-sm text-muted-foreground mb-2">
                       How many items need testing?
                     </p>
                     <Input
@@ -437,12 +505,13 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
                           estimatedQty: parseInt(e.target.value) || 0,
                         })
                       }
+                      className="h-12 text-lg"
                     />
                   </div>
 
                   <div>
                     <Label htmlFor="notes">Additional Notes</Label>
-                    <p className="text-sm text-gray-500 mb-2">
+                    <p className="text-sm text-muted-foreground mb-2">
                       Any special requirements or instructions?
                     </p>
                     <Textarea
@@ -454,15 +523,30 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
                   </div>
 
                   {data.estimatedQty && data.estimatedQty > 0 && (
-                    <div className="p-4 bg-gray-50 rounded-xl">
-                      <p className="text-sm text-gray-500 mb-1">Estimated Quote</p>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {formatPrice(quotedPrice)}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        Based on {data.estimatedQty} {selectedService.unitName}s @{" "}
-                        {formatPrice(selectedService.basePrice)}/{selectedService.unitName}
-                      </p>
+                    <div className="space-y-3">
+                      <div className="p-4 bg-muted/50 rounded-xl">
+                        <p className="text-sm text-muted-foreground mb-1">Estimated Quote</p>
+                        <p className="text-2xl font-bold text-foreground">
+                          {formatPrice(quotedPrice)}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Based on {data.estimatedQty} {selectedService.unitName}s @{" "}
+                          {formatPrice(selectedService.basePrice)}/{selectedService.unitName}
+                        </p>
+                      </div>
+
+                      <div className="p-4 bg-primary/5 rounded-xl border border-primary/20">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Timer className="w-4 h-4 text-primary" />
+                          <p className="text-sm font-medium text-primary">Estimated Duration</p>
+                        </div>
+                        <p className="text-lg font-semibold text-foreground">
+                          {formatDuration(estimatedDuration)}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Based on {selectedService.baseMinutes}min base + {selectedService.minutesPerUnit}min per {selectedService.unitName}
+                        </p>
+                      </div>
                     </div>
                   )}
                 </CardContent>
@@ -483,7 +567,7 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
                           setData({ ...data, scheduledDate: date })
                         }
                         disabled={(date) => date < new Date()}
-                        className="rounded-md border"
+                        className="rounded-xl border"
                       />
                     </div>
                   </CardContent>
@@ -498,8 +582,8 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
                         className={cn(
                           "p-4 rounded-xl border-2 transition-all text-left",
                           data.slot === "AM"
-                            ? "border-black bg-black text-white"
-                            : "border-gray-200 hover:border-gray-300"
+                            ? "border-primary bg-primary text-white"
+                            : "border-border hover:border-primary/50"
                         )}
                         onClick={() => setData({ ...data, slot: "AM" })}
                       >
@@ -512,8 +596,8 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
                         className={cn(
                           "p-4 rounded-xl border-2 transition-all text-left",
                           data.slot === "PM"
-                            ? "border-black bg-black text-white"
-                            : "border-gray-200 hover:border-gray-300"
+                            ? "border-primary bg-primary text-white"
+                            : "border-border hover:border-primary/50"
                         )}
                         onClick={() => setData({ ...data, slot: "PM" })}
                       >
@@ -524,6 +608,46 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Dynamic Pricing Display */}
+                {data.scheduledDate && data.slot && (
+                  <Card className={hasDiscount ? "border-green-200 bg-green-50" : ""}>
+                    <CardContent className="p-6">
+                      {loadingPricing ? (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Checking for discounts...</span>
+                        </div>
+                      ) : hasDiscount ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="w-5 h-5 text-green-600" />
+                            <span className="font-semibold text-green-800">
+                              {pricingInfo.discountPercent}% Discount Applied!
+                            </span>
+                          </div>
+                          <p className="text-sm text-green-700">{pricingInfo.discountReason}</p>
+                          <div className="flex items-center gap-3">
+                            <span className="text-lg text-muted-foreground line-through">
+                              {formatPrice(pricingInfo.originalPrice)}
+                            </span>
+                            <span className="text-2xl font-bold text-green-700">
+                              {formatPrice(pricingInfo.discountedPrice)}
+                            </span>
+                            <Badge className="bg-green-100 text-green-800 border-green-200">
+                              Save {formatPrice(pricingInfo.originalPrice - pricingInfo.discountedPrice)}
+                            </Badge>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Quote for this date</span>
+                          <span className="text-xl font-bold">{formatPrice(quotedPrice)}</span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             )}
 
@@ -532,38 +656,38 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
               <Card>
                 <CardContent className="p-6 space-y-6">
                   <div className="space-y-4">
-                    <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl">
-                      <Package className="h-5 w-5 text-gray-500 mt-0.5" />
+                    <div className="flex items-start gap-4 p-4 bg-muted/50 rounded-xl">
+                      <Package className="h-5 w-5 text-primary mt-0.5" />
                       <div>
-                        <p className="text-sm text-gray-500">Service</p>
+                        <p className="text-sm text-muted-foreground">Service</p>
                         <p className="font-medium">{selectedService.name}</p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-muted-foreground">
                           {data.estimatedQty} {selectedService.unitName}s
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl">
-                      <MapPin className="h-5 w-5 text-gray-500 mt-0.5" />
+                    <div className="flex items-start gap-4 p-4 bg-muted/50 rounded-xl">
+                      <MapPin className="h-5 w-5 text-primary mt-0.5" />
                       <div>
-                        <p className="text-sm text-gray-500">Location</p>
+                        <p className="text-sm text-muted-foreground">Location</p>
                         <p className="font-medium">{selectedSite.name}</p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-muted-foreground">
                           {selectedSite.address}, {selectedSite.postcode}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl">
-                      <Calendar className="h-5 w-5 text-gray-500 mt-0.5" />
+                    <div className="flex items-start gap-4 p-4 bg-muted/50 rounded-xl">
+                      <Calendar className="h-5 w-5 text-primary mt-0.5" />
                       <div>
-                        <p className="text-sm text-gray-500">Schedule</p>
+                        <p className="text-sm text-muted-foreground">Schedule</p>
                         <p className="font-medium">
                           {data.scheduledDate
                             ? format(data.scheduledDate, "EEEE, d MMMM yyyy")
                             : ""}
                         </p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-muted-foreground">
                           {data.slot === "AM"
                             ? "Morning (8:00 AM - 12:00 PM)"
                             : "Afternoon (1:00 PM - 5:00 PM)"}
@@ -571,22 +695,52 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
                       </div>
                     </div>
 
+                    <div className="flex items-start gap-4 p-4 bg-primary/5 rounded-xl border border-primary/20">
+                      <Timer className="h-5 w-5 text-primary mt-0.5" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">Estimated Duration</p>
+                        <p className="font-medium">{formatDuration(estimatedDuration)}</p>
+                      </div>
+                    </div>
+
                     {data.notes && (
-                      <div className="p-4 bg-gray-50 rounded-xl">
-                        <p className="text-sm text-gray-500 mb-1">Notes</p>
-                        <p className="text-gray-700">{data.notes}</p>
+                      <div className="p-4 bg-muted/50 rounded-xl">
+                        <p className="text-sm text-muted-foreground mb-1">Notes</p>
+                        <p className="text-foreground">{data.notes}</p>
                       </div>
                     )}
                   </div>
 
                   <div className="border-t pt-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-gray-500">Quoted Price</span>
-                      <span className="text-2xl font-bold">
-                        {formatPrice(quotedPrice)}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-400">
+                    {hasDiscount ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-muted-foreground">
+                          <span>Original Price</span>
+                          <span className="line-through">{formatPrice(pricingInfo.originalPrice)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-green-600">
+                          <span className="flex items-center gap-2">
+                            <Sparkles className="w-4 h-4" />
+                            {pricingInfo.discountPercent}% Discount
+                          </span>
+                          <span>-{formatPrice(pricingInfo.originalPrice - pricingInfo.discountedPrice)}</span>
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t">
+                          <span className="font-medium">Final Price</span>
+                          <span className="text-2xl font-bold text-green-600">
+                            {formatPrice(finalPrice)}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Quoted Price</span>
+                        <span className="text-2xl font-bold">
+                          {formatPrice(quotedPrice)}
+                        </span>
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-2">
                       Final price may vary based on actual items tested
                     </p>
                   </div>
@@ -603,18 +757,27 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
           variant="outline"
           onClick={goBack}
           disabled={currentStep === 0 || loading}
+          className="h-12 px-6"
         >
           <ChevronLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
 
         {currentStep === steps.length - 1 ? (
-          <Button onClick={handleSubmit} disabled={loading || !canProceed()}>
+          <Button
+            onClick={handleSubmit}
+            disabled={loading || !canProceed()}
+            className="h-12 px-8 gradient-primary text-white"
+          >
             {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Confirm Booking
           </Button>
         ) : (
-          <Button onClick={goNext} disabled={!canProceed()}>
+          <Button
+            onClick={goNext}
+            disabled={!canProceed()}
+            className="h-12 px-8 gradient-primary text-white"
+          >
             Continue
             <ChevronRight className="h-4 w-4 ml-2" />
           </Button>

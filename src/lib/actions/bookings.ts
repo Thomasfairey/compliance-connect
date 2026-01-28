@@ -4,9 +4,13 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireUser, requireRole } from "@/lib/auth";
 import { bookingSchema } from "@/lib/validations";
-import { calculateQuote, generateBookingReference } from "@/lib/utils";
+import { generateBookingReference } from "@/lib/utils";
+import { calculateDynamicPrice, calculateDuration, getAvailableDiscount as getPricing } from "@/lib/pricing";
 import type { BookingStatus } from "@prisma/client";
 import type { BookingWithRelations, CreateBookingInput } from "@/types";
+
+// Re-export getAvailableDiscount for client use
+export { getPricing as getAvailableDiscount };
 
 export async function getCustomerBookings(): Promise<BookingWithRelations[]> {
   const user = await requireUser();
@@ -74,6 +78,32 @@ export async function createBooking(
     const user = await requireUser();
     const validated = bookingSchema.parse(input);
 
+    // Idempotency check - prevent duplicate bookings within 60 seconds
+    const recentDuplicate = await db.booking.findFirst({
+      where: {
+        customerId: user.id,
+        siteId: validated.siteId,
+        serviceId: validated.serviceId,
+        scheduledDate: validated.scheduledDate,
+        slot: validated.slot,
+        createdAt: {
+          gte: new Date(Date.now() - 60000), // Last 60 seconds
+        },
+      },
+      include: {
+        customer: true,
+        site: true,
+        service: true,
+        engineer: true,
+        assets: true,
+      },
+    });
+
+    if (recentDuplicate) {
+      // Return the existing booking instead of creating a duplicate
+      return { success: true, data: recentDuplicate };
+    }
+
     // Verify site belongs to user
     const site = await db.site.findFirst({
       where: { id: validated.siteId, userId: user.id },
@@ -92,12 +122,16 @@ export async function createBooking(
       return { success: false, error: "Service not found" };
     }
 
-    // Calculate quote
-    const quotedPrice = calculateQuote(
-      service.basePrice,
-      service.minCharge,
+    // Calculate dynamic pricing (includes discounts based on proximity)
+    const pricing = await calculateDynamicPrice(
+      service,
+      site,
+      validated.scheduledDate,
       validated.estimatedQty
     );
+
+    // Calculate estimated duration
+    const duration = calculateDuration(service, validated.estimatedQty);
 
     const booking = await db.booking.create({
       data: {
@@ -108,7 +142,10 @@ export async function createBooking(
         scheduledDate: validated.scheduledDate,
         slot: validated.slot,
         estimatedQty: validated.estimatedQty,
-        quotedPrice,
+        quotedPrice: pricing.discountedPrice,
+        originalPrice: pricing.originalPrice,
+        discountPercent: pricing.discountPercent,
+        estimatedDuration: duration.estimatedMinutes,
         notes: validated.notes,
       },
       include: {
