@@ -6,26 +6,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate, formatPrice, getSlotTime } from "@/lib/utils";
 import { Plus, Calendar, ArrowRight } from "lucide-react";
+import type { BookingWithRelations } from "@/types";
 
 export const metadata = {
   title: "Bookings",
 };
 
-export default async function BookingsPage() {
-  const bookings = await getCustomerBookings();
-
-  const pending = bookings.filter(
-    (b) => b.status === "PENDING" || b.status === "CONFIRMED"
-  );
-  const inProgress = bookings.filter((b) => b.status === "IN_PROGRESS");
-  const completed = bookings.filter((b) => b.status === "COMPLETED");
-  const cancelled = bookings.filter((b) => b.status === "CANCELLED");
-
-  const BookingCard = ({
-    booking,
-  }: {
-    booking: (typeof bookings)[0];
-  }) => (
+function BookingCard({ booking }: { booking: BookingWithRelations }) {
+  return (
     <Link href={`/bookings/${booking.id}`} className="block">
       <Card className="hover:shadow-md hover:border-gray-200 transition-all">
         <CardContent className="p-4 sm:p-6">
@@ -62,34 +50,45 @@ export default async function BookingsPage() {
       </Card>
     </Link>
   );
+}
 
-  const BookingsList = ({
-    items,
-    emptyMessage,
-  }: {
-    items: typeof bookings;
-    emptyMessage: string;
-  }) => {
-    if (items.length === 0) {
-      return (
-        <EmptyState
-          icon={Calendar}
-          title="No bookings found"
-          description={emptyMessage}
-          actionLabel="Book Now"
-          actionHref="/bookings/new"
-        />
-      );
-    }
-
+function BookingsList({
+  items,
+  emptyMessage,
+}: {
+  items: BookingWithRelations[];
+  emptyMessage: string;
+}) {
+  if (items.length === 0) {
     return (
-      <div className="space-y-4">
-        {items.map((booking) => (
-          <BookingCard key={booking.id} booking={booking} />
-        ))}
-      </div>
+      <EmptyState
+        icon={Calendar}
+        title="No bookings found"
+        description={emptyMessage}
+        actionLabel="Book Now"
+        actionHref="/bookings/new"
+      />
     );
-  };
+  }
+
+  return (
+    <div className="space-y-4">
+      {items.map((booking) => (
+        <BookingCard key={booking.id} booking={booking} />
+      ))}
+    </div>
+  );
+}
+
+export default async function BookingsPage() {
+  const bookings = await getCustomerBookings();
+
+  const pending = bookings.filter(
+    (b) => b.status === "PENDING" || b.status === "CONFIRMED"
+  );
+  const inProgress = bookings.filter((b) => b.status === "IN_PROGRESS");
+  const completed = bookings.filter((b) => b.status === "COMPLETED");
+  const cancelled = bookings.filter((b) => b.status === "CANCELLED");
 
   return (
     <div>

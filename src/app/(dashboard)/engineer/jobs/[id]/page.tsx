@@ -13,7 +13,6 @@ import {
   FileText,
   Phone,
   Navigation,
-  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { JobActions } from "@/components/engineer/job-actions";

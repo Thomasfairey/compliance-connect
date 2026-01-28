@@ -3,13 +3,12 @@ import Link from "next/link";
 import { getOrCreateUser } from "@/lib/auth";
 import { getOrCreateEngineerProfile, getEngineerAvailability } from "@/lib/actions/engineer";
 import { PageHeader } from "@/components/shared";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AvailabilityCalendar } from "@/components/engineer/availability-calendar";
 import { addDays } from "date-fns";
 import {
-  User,
   Award,
   Wrench,
   MapPin,

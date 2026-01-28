@@ -2,7 +2,7 @@
 
 import { SignUp } from "@clerk/nextjs";
 import Link from "next/link";
-import { Wrench, Shield, Calendar, Award, CheckCircle2 } from "lucide-react";
+import { Shield, Award, CheckCircle2 } from "lucide-react";
 
 export default function EngineerSignupPage() {
   return (

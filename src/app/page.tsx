@@ -11,7 +11,6 @@ import {
   FileCheck,
   Building2,
   Star,
-  Users,
   Award,
   Wrench,
   ChevronRight,

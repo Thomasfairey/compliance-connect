@@ -3,16 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import { UserButton } from "@clerk/nextjs";
 import {
   LayoutDashboard,
   Calendar,
   Building2,
   Menu,
-  X,
   Shield,
-  Wrench,
   Users,
   Settings,
   ClipboardList,

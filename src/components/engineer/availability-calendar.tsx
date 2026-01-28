@@ -20,12 +20,6 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-type AvailabilitySlot = {
-  date: Date;
-  slot: "AM" | "PM";
-  isAvailable: boolean;
-};
-
 type Props = {
   initialAvailability?: { date: Date; slot: string; isAvailable: boolean }[];
   calendarSyncs?: { provider: string; lastSyncedAt: Date | null }[];
@@ -89,9 +83,13 @@ export function AvailabilityCalendar({ initialAvailability = [], calendarSyncs =
 
       if (result.success) {
         toast.success("Availability updated!");
-        // Merge changes into availability
-        changes.forEach((value, key) => {
-          availability.set(key, value);
+        // Merge changes into availability using proper state update
+        setAvailability((prev) => {
+          const newMap = new Map(prev);
+          changes.forEach((value, key) => {
+            newMap.set(key, value);
+          });
+          return newMap;
         });
         setChanges(new Map());
         router.refresh();

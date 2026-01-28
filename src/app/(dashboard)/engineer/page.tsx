@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getOrCreateUser } from "@/lib/auth";
 import { getEngineerStats, getEngineerJobs, getAvailableJobs } from "@/lib/actions";
-import { PageHeader, StatCard, StatusBadge, EmptyState } from "@/components/shared";
+import { PageHeader, StatCard, StatusBadge } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatDate, getSlotTime } from "@/lib/utils";

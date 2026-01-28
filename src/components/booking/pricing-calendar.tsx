@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import {
   format,
   addMonths,
@@ -12,7 +12,6 @@ import {
   addDays,
   isSameMonth,
   isSameDay,
-  isAfter,
   isBefore,
   startOfDay,
 } from "date-fns";
@@ -52,39 +51,49 @@ export function PricingCalendar({
   const today = startOfDay(new Date());
 
   // Fetch discounts for visible month
-  const fetchDiscounts = useCallback(async () => {
-    if (!serviceId || !siteId || !estimatedQty) {
-      setDiscounts(new Map());
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const start = startOfMonth(currentMonth);
-      const end = endOfMonth(currentMonth);
-
-      const results = await getDateRangeDiscounts(
-        serviceId,
-        siteId,
-        start,
-        end,
-        estimatedQty
-      );
-
-      const discountMap = new Map<string, DayDiscount>();
-      results.forEach((r) => {
-        discountMap.set(r.date, r);
-      });
-      setDiscounts(discountMap);
-    } catch (error) {
-      console.error("Failed to fetch discounts:", error);
-    }
-    setLoading(false);
-  }, [serviceId, siteId, estimatedQty, currentMonth]);
-
   useEffect(() => {
+    let cancelled = false;
+
+    async function fetchDiscounts() {
+      if (!serviceId || !siteId || !estimatedQty) {
+        setDiscounts(new Map());
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const start = startOfMonth(currentMonth);
+        const end = endOfMonth(currentMonth);
+
+        const results = await getDateRangeDiscounts(
+          serviceId,
+          siteId,
+          start,
+          end,
+          estimatedQty
+        );
+
+        if (!cancelled) {
+          const discountMap = new Map<string, DayDiscount>();
+          results.forEach((r) => {
+            discountMap.set(r.date, r);
+          });
+          setDiscounts(discountMap);
+        }
+      } catch (error) {
+        console.error("Failed to fetch discounts:", error);
+      }
+      if (!cancelled) {
+        setLoading(false);
+      }
+    }
+
     fetchDiscounts();
-  }, [fetchDiscounts]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [serviceId, siteId, estimatedQty, currentMonth]);
 
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
