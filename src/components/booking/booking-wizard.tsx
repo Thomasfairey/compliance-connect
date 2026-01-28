@@ -28,11 +28,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { PricingCalendar } from "@/components/booking/pricing-calendar";
+import { TimeSlotPicker } from "@/components/booking/time-slot-picker";
 import { cn, formatPrice, calculateQuote } from "@/lib/utils";
 import { createBooking, createSite, getAvailableDiscount } from "@/lib/actions";
 import type { Service, Site } from "@prisma/client";
-import type { BookingStep, BookingWizardData } from "@/types";
+import type { BookingStep, BookingWizardData, TimeSlot } from "@/types";
 
 interface BookingWizardProps {
   services: Service[];
@@ -119,6 +120,13 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  };
+
+  const formatSlotTime = (slot: TimeSlot) => {
+    const [hours] = slot.split(":").map(Number);
+    const period = hours >= 12 ? "PM" : "AM";
+    const displayHours = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+    return `${displayHours}:00 ${period}`;
   };
 
   // Fetch dynamic pricing when schedule is selected
@@ -559,53 +567,31 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
                 <Card>
                   <CardContent className="p-6">
                     <Label className="mb-4 block">Select Date *</Label>
-                    <div className="flex justify-center">
-                      <CalendarComponent
-                        mode="single"
-                        selected={data.scheduledDate}
-                        onSelect={(date) =>
-                          setData({ ...data, scheduledDate: date })
-                        }
-                        disabled={(date) => date < new Date()}
-                        className="rounded-xl border"
-                      />
-                    </div>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Days highlighted in green have discounts available based on existing bookings nearby.
+                    </p>
+                    <PricingCalendar
+                      selected={data.scheduledDate}
+                      onSelect={(date) => setData({ ...data, scheduledDate: date })}
+                      serviceId={data.serviceId}
+                      siteId={data.siteId}
+                      estimatedQty={data.estimatedQty}
+                      disabled={(date) => date < new Date()}
+                    />
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardContent className="p-6">
-                    <Label className="mb-4 block">Select Time Slot *</Label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <button
-                        type="button"
-                        className={cn(
-                          "p-4 rounded-xl border-2 transition-all text-left",
-                          data.slot === "AM"
-                            ? "border-primary bg-primary text-white"
-                            : "border-border hover:border-primary/50"
-                        )}
-                        onClick={() => setData({ ...data, slot: "AM" })}
-                      >
-                        <Clock className="h-5 w-5 mb-2" />
-                        <p className="font-semibold">Morning</p>
-                        <p className="text-sm opacity-75">8:00 AM - 12:00 PM</p>
-                      </button>
-                      <button
-                        type="button"
-                        className={cn(
-                          "p-4 rounded-xl border-2 transition-all text-left",
-                          data.slot === "PM"
-                            ? "border-primary bg-primary text-white"
-                            : "border-border hover:border-primary/50"
-                        )}
-                        onClick={() => setData({ ...data, slot: "PM" })}
-                      >
-                        <Clock className="h-5 w-5 mb-2" />
-                        <p className="font-semibold">Afternoon</p>
-                        <p className="text-sm opacity-75">1:00 PM - 5:00 PM</p>
-                      </button>
-                    </div>
+                    <Label className="mb-4 block">Select Start Time *</Label>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Choose when you would like the engineer to arrive.
+                    </p>
+                    <TimeSlotPicker
+                      selected={data.slot}
+                      onSelect={(slot) => setData({ ...data, slot })}
+                      estimatedDuration={estimatedDuration}
+                    />
                   </CardContent>
                 </Card>
 
@@ -688,9 +674,7 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
                             : ""}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {data.slot === "AM"
-                            ? "Morning (8:00 AM - 12:00 PM)"
-                            : "Afternoon (1:00 PM - 5:00 PM)"}
+                          Starting at {data.slot ? formatSlotTime(data.slot) : ""}
                         </p>
                       </div>
                     </div>

@@ -12,6 +12,37 @@ import type { BookingWithRelations, CreateBookingInput } from "@/types";
 // Re-export getAvailableDiscount for client use
 export { getPricing as getAvailableDiscount };
 
+// Get discounts for a range of dates (for calendar display)
+export async function getDateRangeDiscounts(
+  serviceId: string,
+  siteId: string,
+  startDate: Date,
+  endDate: Date,
+  estimatedQty: number
+): Promise<{ date: string; discountPercent: number; discountReason?: string }[]> {
+  const service = await db.service.findUnique({ where: { id: serviceId } });
+  const site = await db.site.findUnique({ where: { id: siteId } });
+
+  if (!service || !site) return [];
+
+  const results: { date: string; discountPercent: number; discountReason?: string }[] = [];
+  const currentDate = new Date(startDate);
+
+  while (currentDate <= endDate) {
+    const pricing = await getPricing(serviceId, siteId, new Date(currentDate), estimatedQty);
+    if (pricing) {
+      results.push({
+        date: currentDate.toISOString().split('T')[0],
+        discountPercent: pricing.discountPercent,
+        discountReason: pricing.discountReason,
+      });
+    }
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  return results;
+}
+
 export async function getCustomerBookings(): Promise<BookingWithRelations[]> {
   const user = await requireUser();
 

@@ -27,7 +27,10 @@ export const bookingSchema = z.object({
   serviceId: z.string().min(1, "Please select a service"),
   siteId: z.string().min(1, "Please select a site"),
   scheduledDate: z.date({ error: "Please select a date" }),
-  slot: z.enum(["AM", "PM"], { error: "Please select a time slot" }),
+  slot: z.enum(
+    ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00"],
+    { error: "Please select a time slot" }
+  ),
   estimatedQty: z
     .number()
     .min(1, "Quantity must be at least 1")
