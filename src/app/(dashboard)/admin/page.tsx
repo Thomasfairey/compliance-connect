@@ -29,26 +29,9 @@ export default async function AdminDashboardPage() {
     redirect("/dashboard");
   }
 
-  let stats = {
-    totalUsers: 0,
-    totalEngineers: 0,
-    totalBookings: 0,
-    pendingBookings: 0,
-    completedBookings: 0,
-    revenue: 0,
-  };
-  let bookings: Awaited<ReturnType<typeof getAllBookings>> = [];
-
-  try {
-    const results = await Promise.all([
-      getAdminStats(),
-      getAllBookings(),
-    ]);
-    stats = results[0];
-    bookings = results[1];
-  } catch (error) {
-    console.error("Data fetch error in admin page:", error);
-  }
+  // Fetch data sequentially to avoid auth race conditions
+  const stats = await getAdminStats();
+  const bookings = await getAllBookings();
 
   const recentBookings = bookings.slice(0, 5);
   const pendingBookings = bookings.filter(

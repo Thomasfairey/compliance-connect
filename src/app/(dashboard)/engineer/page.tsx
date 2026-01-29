@@ -29,27 +29,10 @@ export default async function EngineerDashboardPage() {
     redirect("/dashboard");
   }
 
-  let stats = {
-    assignedJobs: 0,
-    inProgressJobs: 0,
-    completedToday: 0,
-    completedThisWeek: 0,
-  };
-  let myJobs: Awaited<ReturnType<typeof getEngineerJobs>> = [];
-  let availableJobs: Awaited<ReturnType<typeof getAvailableJobs>> = [];
-
-  try {
-    const results = await Promise.all([
-      getEngineerStats(),
-      getEngineerJobs(),
-      getAvailableJobs(),
-    ]);
-    stats = results[0];
-    myJobs = results[1];
-    availableJobs = results[2];
-  } catch (error) {
-    console.error("Data fetch error in engineer page:", error);
-  }
+  // Fetch data sequentially to avoid auth race conditions
+  const stats = await getEngineerStats();
+  const myJobs = await getEngineerJobs();
+  const availableJobs = await getAvailableJobs();
 
   const todaysJobs = myJobs.filter((job) => {
     const today = new Date();
