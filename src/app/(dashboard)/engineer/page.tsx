@@ -16,18 +16,14 @@ import {
   MapPin,
 } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Engineer Dashboard",
 };
 
 export default async function EngineerDashboardPage() {
-  let user;
-  try {
-    user = await getOrCreateUser();
-  } catch (error) {
-    console.error("Auth error in engineer page:", error);
-    redirect("/sign-in");
-  }
+  const user = await getOrCreateUser();
 
   if (user.role !== "ENGINEER" && user.role !== "ADMIN") {
     redirect("/dashboard");

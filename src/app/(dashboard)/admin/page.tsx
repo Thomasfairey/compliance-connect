@@ -16,18 +16,14 @@ import {
   ArrowRight,
 } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Admin Dashboard",
 };
 
 export default async function AdminDashboardPage() {
-  let user;
-  try {
-    user = await getOrCreateUser();
-  } catch (error) {
-    console.error("Auth error in admin page:", error);
-    redirect("/sign-in");
-  }
+  const user = await getOrCreateUser();
 
   if (user.role !== "ADMIN") {
     redirect("/dashboard");

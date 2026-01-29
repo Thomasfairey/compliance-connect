@@ -15,18 +15,14 @@ import {
   ArrowRight,
 } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Dashboard",
 };
 
 export default async function DashboardPage() {
-  let user;
-  try {
-    user = await getOrCreateUser();
-  } catch (error) {
-    console.error("Auth error in dashboard:", error);
-    redirect("/sign-in");
-  }
+  const user = await getOrCreateUser();
 
   // Redirect engineers and admins to their respective dashboards
   if (user.role === "ENGINEER") {
