@@ -140,6 +140,22 @@ const services = [
     iconColor: "text-indigo-500",
     bgColor: "bg-indigo-500/10",
   },
+  {
+    icon: GraduationCap,
+    name: "Fire Awareness Training",
+    description: "Essential fire safety awareness training for all staff members.",
+    price: "From £45/person",
+    iconColor: "text-orange-600",
+    bgColor: "bg-orange-600/10",
+  },
+  {
+    icon: GraduationCap,
+    name: "Working at Height Training",
+    description: "Safety training for employees working at height.",
+    price: "From £85/person",
+    iconColor: "text-sky-500",
+    bgColor: "bg-sky-500/10",
+  },
 ];
 
 const stats = [
@@ -344,30 +360,31 @@ export default function HomePage() {
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {services.map((service, index) => (
-              <motion.div
-                key={service.name}
-                className="group relative bg-card rounded-2xl p-6 border border-border hover:border-primary/50 hover:shadow-xl transition-all duration-300"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <div className={`w-14 h-14 ${service.bgColor} rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform`}>
-                  <service.icon className={`w-7 h-7 ${service.iconColor}`} />
-                </div>
-                <h3 className="font-bold text-xl text-foreground mb-2">
-                  {service.name}
-                </h3>
-                <p className="text-muted-foreground text-sm mb-4 leading-relaxed">
-                  {service.description}
-                </p>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-primary">
-                    {service.price}
-                  </span>
-                  <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                </div>
-              </motion.div>
+              <Link key={service.name} href="/bookings/new">
+                <motion.div
+                  className="group relative bg-card rounded-2xl p-6 border border-border hover:border-primary/50 hover:shadow-xl transition-all duration-300 cursor-pointer h-full"
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 }}
+                >
+                  <div className={`w-14 h-14 ${service.bgColor} rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform`}>
+                    <service.icon className={`w-7 h-7 ${service.iconColor}`} />
+                  </div>
+                  <h3 className="font-bold text-xl text-foreground mb-2">
+                    {service.name}
+                  </h3>
+                  <p className="text-muted-foreground text-sm mb-4 leading-relaxed">
+                    {service.description}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-primary">
+                      {service.price}
+                    </span>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                  </div>
+                </motion.div>
+              </Link>
             ))}
           </div>
 

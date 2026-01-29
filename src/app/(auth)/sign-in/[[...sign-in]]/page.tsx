@@ -33,7 +33,7 @@ export default function SignInPage() {
               formFieldInput: "rounded-xl",
             },
           }}
-          afterSignInUrl="/dashboard"
+          fallbackRedirectUrl="/dashboard"
           signUpUrl="/sign-up"
         />
       </div>
