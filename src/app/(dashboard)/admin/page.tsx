@@ -1,12 +1,19 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getOrCreateUser } from "@/lib/auth";
-import { PageHeader } from "@/components/shared";
-import { Card, CardContent } from "@/components/ui/card";
+import { db } from "@/lib/db";
+import { PageHeader, StatCard, StatusBadge } from "@/components/shared";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { formatDate, formatPrice } from "@/lib/utils";
 import {
-  Calendar,
+  Users,
   Wrench,
+  Calendar,
+  Clock,
   CheckCircle2,
+  PoundSterling,
+  ArrowRight,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +29,51 @@ export default async function AdminDashboardPage() {
     redirect("/dashboard");
   }
 
+  // Fetch stats directly in the page component to avoid auth race conditions
+  const [
+    totalUsers,
+    totalEngineers,
+    totalBookings,
+    pendingBookings,
+    completedBookings,
+    revenueAgg,
+    bookings,
+  ] = await Promise.all([
+    db.user.count(),
+    db.user.count({ where: { role: "ENGINEER" } }),
+    db.booking.count(),
+    db.booking.count({ where: { status: { in: ["PENDING", "CONFIRMED"] } } }),
+    db.booking.count({ where: { status: "COMPLETED" } }),
+    db.booking.aggregate({
+      where: { status: "COMPLETED" },
+      _sum: { quotedPrice: true },
+    }),
+    db.booking.findMany({
+      include: {
+        customer: true,
+        site: true,
+        service: true,
+        engineer: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    }),
+  ]);
+
+  const stats = {
+    totalUsers,
+    totalEngineers,
+    totalBookings,
+    pendingBookings,
+    completedBookings,
+    revenue: revenueAgg._sum.quotedPrice || 0,
+  };
+
+  const recentBookings = bookings.slice(0, 5);
+  const unassignedBookings = bookings.filter(
+    (b) => b.status === "PENDING" && !b.engineerId
+  );
+
   return (
     <div>
       <PageHeader
@@ -29,10 +81,131 @@ export default async function AdminDashboardPage() {
         description="Manage bookings, engineers, and services."
       />
 
-      <p className="mb-8 text-gray-600">Welcome, {user.name}!</p>
+      {/* Stats Grid */}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+        <StatCard title="Total Users" value={stats.totalUsers} icon={Users} />
+        <StatCard
+          title="Engineers"
+          value={stats.totalEngineers}
+          icon={Wrench}
+        />
+        <StatCard
+          title="Total Bookings"
+          value={stats.totalBookings}
+          icon={Calendar}
+        />
+        <StatCard title="Pending" value={stats.pendingBookings} icon={Clock} />
+        <StatCard
+          title="Completed"
+          value={stats.completedBookings}
+          icon={CheckCircle2}
+        />
+        <StatCard
+          title="Revenue"
+          value={formatPrice(stats.revenue)}
+          icon={PoundSterling}
+        />
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Unassigned Bookings */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-lg">
+              Unassigned Bookings ({unassignedBookings.length})
+            </CardTitle>
+            <Link href="/admin/bookings">
+              <Button variant="ghost" size="sm">
+                View All
+                <ArrowRight className="h-4 w-4 ml-1" />
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {unassignedBookings.length === 0 ? (
+              <div className="py-8 text-center text-gray-500">
+                <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                <p>All bookings are assigned</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {unassignedBookings.slice(0, 5).map((booking) => (
+                  <Link
+                    key={booking.id}
+                    href={`/admin/bookings/${booking.id}`}
+                    className="block"
+                  >
+                    <div className="p-4 rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-all">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {booking.service.name}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {booking.customer.name}
+                          </p>
+                        </div>
+                        <StatusBadge status={booking.status} />
+                      </div>
+                      <p className="text-sm text-gray-500">
+                        {booking.site.name} • {formatDate(booking.scheduledDate)}
+                      </p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent Bookings */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-lg">Recent Bookings</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recentBookings.length === 0 ? (
+              <div className="py-8 text-center text-gray-500">
+                <Calendar className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                <p>No bookings yet</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recentBookings.map((booking) => (
+                  <Link
+                    key={booking.id}
+                    href={`/admin/bookings/${booking.id}`}
+                    className="block"
+                  >
+                    <div className="p-4 rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-all">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {booking.service.name}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {booking.customer.name}
+                          </p>
+                        </div>
+                        <StatusBadge status={booking.status} />
+                      </div>
+                      <div className="flex items-center justify-between text-sm text-gray-500">
+                        <span>{formatDate(booking.scheduledDate)}</span>
+                        <span className="font-medium">
+                          {formatPrice(booking.quotedPrice)}
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Quick Links */}
-      <div className="grid sm:grid-cols-3 gap-4">
+      <div className="mt-8 grid sm:grid-cols-3 gap-4">
         <Link href="/admin/bookings">
           <Card className="hover:shadow-md hover:border-gray-200 transition-all cursor-pointer">
             <CardContent className="p-6 flex items-center gap-4">

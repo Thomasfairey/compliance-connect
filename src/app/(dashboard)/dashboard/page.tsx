@@ -1,12 +1,18 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getOrCreateUser } from "@/lib/auth";
-import { PageHeader } from "@/components/shared";
+import { db } from "@/lib/db";
+import { PageHeader, StatCard, StatusBadge, EmptyState } from "@/components/shared";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatDate, formatPrice, getSlotTime } from "@/lib/utils";
 import {
   Calendar,
   Plus,
   Building2,
+  CheckCircle2,
+  Clock,
+  ArrowRight,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +32,34 @@ export default async function DashboardPage() {
     redirect("/admin");
   }
 
+  // Fetch stats directly to avoid auth race conditions
+  const [totalBookings, pendingBookings, completedBookings, totalSites, bookings] =
+    await Promise.all([
+      db.booking.count({ where: { customerId: user.id } }),
+      db.booking.count({
+        where: { customerId: user.id, status: { in: ["PENDING", "CONFIRMED"] } },
+      }),
+      db.booking.count({ where: { customerId: user.id, status: "COMPLETED" } }),
+      db.site.count({ where: { userId: user.id } }),
+      db.booking.findMany({
+        where: { customerId: user.id },
+        include: {
+          site: true,
+          service: true,
+        },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
+    ]);
+
+  const stats = { totalBookings, pendingBookings, completedBookings, totalSites };
+  const recentBookings = bookings.slice(0, 5);
+  const upcomingBookings = bookings.filter(
+    (b) =>
+      (b.status === "PENDING" || b.status === "CONFIRMED") &&
+      new Date(b.scheduledDate) >= new Date()
+  );
+
   return (
     <div>
       <PageHeader
@@ -40,6 +74,129 @@ export default async function DashboardPage() {
           </Link>
         }
       />
+
+      {/* Stats Grid */}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <StatCard
+          title="Total Bookings"
+          value={stats.totalBookings}
+          icon={Calendar}
+        />
+        <StatCard
+          title="Pending"
+          value={stats.pendingBookings}
+          icon={Clock}
+        />
+        <StatCard
+          title="Completed"
+          value={stats.completedBookings}
+          icon={CheckCircle2}
+        />
+        <StatCard
+          title="Sites"
+          value={stats.totalSites}
+          icon={Building2}
+        />
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Upcoming Bookings */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-lg">Upcoming Bookings</CardTitle>
+            <Link href="/bookings">
+              <Button variant="ghost" size="sm">
+                View All
+                <ArrowRight className="h-4 w-4 ml-1" />
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {upcomingBookings.length === 0 ? (
+              <EmptyState
+                icon={Calendar}
+                title="No upcoming bookings"
+                description="Book a compliance test to get started."
+                actionLabel="Book Now"
+                actionHref="/bookings/new"
+              />
+            ) : (
+              <div className="space-y-4">
+                {upcomingBookings.slice(0, 3).map((booking) => (
+                  <Link
+                    key={booking.id}
+                    href={`/bookings/${booking.id}`}
+                    className="block"
+                  >
+                    <div className="flex items-center justify-between p-4 rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-all">
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {booking.service.name}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {booking.site.name} • {formatDate(booking.scheduledDate)}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {getSlotTime(booking.slot)}
+                        </p>
+                      </div>
+                      <StatusBadge status={booking.status} />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent Activity */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-lg">Recent Activity</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recentBookings.length === 0 ? (
+              <EmptyState
+                icon={Clock}
+                title="No recent activity"
+                description="Your booking history will appear here."
+              />
+            ) : (
+              <div className="space-y-4">
+                {recentBookings.map((booking) => (
+                  <Link
+                    key={booking.id}
+                    href={`/bookings/${booking.id}`}
+                    className="block"
+                  >
+                    <div className="flex items-center justify-between p-4 rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-all">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-gray-900">
+                            {booking.service.name}
+                          </p>
+                          <StatusBadge status={booking.status} />
+                        </div>
+                        <p className="text-sm text-gray-500">
+                          {booking.site.name}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {formatPrice(booking.quotedPrice)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-gray-500">
+                          {formatDate(booking.scheduledDate)}
+                        </p>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Quick Actions */}
       <div className="mt-8">
