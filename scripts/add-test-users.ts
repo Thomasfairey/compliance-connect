@@ -51,6 +51,19 @@ async function main() {
     },
   });
   console.log("Admin created:", admin.id);
+
+  // Create customer user in database
+  const customer = await prisma.user.upsert({
+    where: { clerkId: "user_38vamfB9fL03lPQvevzL9FDHJNV" },
+    update: { role: "CUSTOMER" },
+    create: {
+      clerkId: "user_38vamfB9fL03lPQvevzL9FDHJNV",
+      email: "test.customer@demo.com",
+      name: "Test Customer",
+      role: "CUSTOMER",
+    },
+  });
+  console.log("Customer created:", customer.id);
 }
 
 main()
