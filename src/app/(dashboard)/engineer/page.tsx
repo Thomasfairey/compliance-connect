@@ -1,19 +1,12 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getOrCreateUser } from "@/lib/auth";
-import { getEngineerStats, getEngineerJobs, getAvailableJobs } from "@/lib/actions";
-import { PageHeader, StatCard, StatusBadge } from "@/components/shared";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { formatDate, getSlotTime } from "@/lib/utils";
-import { JobsCalendar } from "@/components/engineer/jobs-calendar";
+import { PageHeader } from "@/components/shared";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Wrench,
-  Clock,
-  CheckCircle2,
   Calendar,
-  ArrowRight,
-  MapPin,
+  User,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -29,20 +22,6 @@ export default async function EngineerDashboardPage() {
     redirect("/dashboard");
   }
 
-  // Fetch data sequentially to avoid auth race conditions
-  const stats = await getEngineerStats();
-  const myJobs = await getEngineerJobs();
-  const availableJobs = await getAvailableJobs();
-
-  const todaysJobs = myJobs.filter((job) => {
-    const today = new Date();
-    const jobDate = new Date(job.scheduledDate);
-    return (
-      jobDate.toDateString() === today.toDateString() &&
-      (job.status === "CONFIRMED" || job.status === "IN_PROGRESS")
-    );
-  });
-
   return (
     <div>
       <PageHeader
@@ -50,146 +29,50 @@ export default async function EngineerDashboardPage() {
         description="Here's your work overview."
       />
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard
-          title="Assigned"
-          value={stats.assignedJobs}
-          icon={Calendar}
-        />
-        <StatCard
-          title="In Progress"
-          value={stats.inProgressJobs}
-          icon={Clock}
-        />
-        <StatCard
-          title="Today"
-          value={stats.completedToday}
-          icon={CheckCircle2}
-        />
-        <StatCard
-          title="This Week"
-          value={stats.completedThisWeek}
-          icon={Wrench}
-        />
+      <p className="mb-8 text-gray-600">Welcome to the engineer portal!</p>
+
+      {/* Quick Links */}
+      <div className="grid sm:grid-cols-3 gap-4">
+        <Link href="/engineer/jobs">
+          <Card className="hover:shadow-md hover:border-gray-200 transition-all cursor-pointer">
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
+                <Wrench className="h-6 w-6 text-gray-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">My Jobs</h3>
+                <p className="text-sm text-gray-500">View assigned jobs</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/engineer/profile">
+          <Card className="hover:shadow-md hover:border-gray-200 transition-all cursor-pointer">
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
+                <User className="h-6 w-6 text-gray-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">My Profile</h3>
+                <p className="text-sm text-gray-500">Update your details</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/engineer/jobs">
+          <Card className="hover:shadow-md hover:border-gray-200 transition-all cursor-pointer">
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
+                <Calendar className="h-6 w-6 text-gray-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">Schedule</h3>
+                <p className="text-sm text-gray-500">View your calendar</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
-
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Today's Jobs */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg">Today&apos;s Jobs</CardTitle>
-            <Link href="/engineer/jobs">
-              <Button variant="ghost" size="sm">
-                View All
-                <ArrowRight className="h-4 w-4 ml-1" />
-              </Button>
-            </Link>
-          </CardHeader>
-          <CardContent>
-            {todaysJobs.length === 0 ? (
-              <div className="py-8 text-center text-gray-500">
-                <Calendar className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                <p>No jobs scheduled for today</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {todaysJobs.map((job) => (
-                  <Link
-                    key={job.id}
-                    href={`/engineer/jobs/${job.id}`}
-                    className="block"
-                  >
-                    <div className="p-4 rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-all active:scale-[0.99]">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <p className="font-medium text-gray-900">
-                            {job.service.name}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {job.site.name}
-                          </p>
-                        </div>
-                        <StatusBadge status={job.status} />
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <Clock className="h-4 w-4" />
-                        <span>{getSlotTime(job.slot)}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
-                        <MapPin className="h-4 w-4" />
-                        <span className="truncate">{job.site.postcode}</span>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Available Jobs */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg">Available Jobs</CardTitle>
-            <span className="text-sm text-gray-500">
-              {availableJobs.length} available
-            </span>
-          </CardHeader>
-          <CardContent>
-            {availableJobs.length === 0 ? (
-              <div className="py-8 text-center text-gray-500">
-                <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                <p>No jobs available right now</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {availableJobs.slice(0, 5).map((job) => (
-                  <Link
-                    key={job.id}
-                    href={`/engineer/jobs/${job.id}`}
-                    className="block"
-                  >
-                    <div className="p-4 rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-all active:scale-[0.99]">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <p className="font-medium text-gray-900">
-                            {job.service.name}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {job.site.name}
-                          </p>
-                        </div>
-                        <StatusBadge status={job.status} />
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-gray-500">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          <span>{formatDate(job.scheduledDate)}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-4 w-4" />
-                          <span>{job.site.postcode}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Jobs Calendar */}
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle className="text-lg">My Schedule</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <JobsCalendar jobs={myJobs} />
-        </CardContent>
-      </Card>
     </div>
   );
 }
