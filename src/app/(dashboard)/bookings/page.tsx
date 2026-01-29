@@ -12,6 +12,8 @@ export const metadata = {
   title: "Bookings",
 };
 
+export const dynamic = "force-dynamic";
+
 function BookingCard({ booking }: { booking: BookingWithRelations }) {
   return (
     <Link href={`/bookings/${booking.id}`} className="block">
