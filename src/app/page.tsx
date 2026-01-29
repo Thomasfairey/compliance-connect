@@ -15,6 +15,12 @@ import {
   Wrench,
   ChevronRight,
   Sparkles,
+  Flame,
+  ClipboardCheck,
+  HeartPulse,
+  Droplets,
+  Monitor,
+  GraduationCap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SignedIn, SignedOut } from "@clerk/nextjs";
@@ -34,6 +40,7 @@ const stagger = {
 };
 
 const services = [
+  // Testing Services
   {
     icon: Zap,
     name: "PAT Testing",
@@ -65,6 +72,73 @@ const services = [
     price: "From £150",
     iconColor: "text-blue-500",
     bgColor: "bg-blue-500/10",
+  },
+  // Fire Safety
+  {
+    icon: Flame,
+    name: "Fire Extinguisher Servicing",
+    description: "Annual fire extinguisher inspection, servicing, and certification.",
+    price: "From £8/unit",
+    iconColor: "text-orange-500",
+    bgColor: "bg-orange-500/10",
+  },
+  {
+    icon: ClipboardCheck,
+    name: "Fire Risk Assessment",
+    description: "Comprehensive fire risk assessment for your premises as required by law.",
+    price: "From £250",
+    iconColor: "text-red-600",
+    bgColor: "bg-red-600/10",
+  },
+  // Health & Safety Assessments
+  {
+    icon: HeartPulse,
+    name: "Health & Safety Assessment",
+    description: "General workplace health and safety risk assessment.",
+    price: "From £200",
+    iconColor: "text-pink-500",
+    bgColor: "bg-pink-500/10",
+  },
+  {
+    icon: Droplets,
+    name: "Legionella Risk Assessment",
+    description: "Water system legionella risk assessment and compliance review.",
+    price: "From £180",
+    iconColor: "text-cyan-500",
+    bgColor: "bg-cyan-500/10",
+  },
+  {
+    icon: Monitor,
+    name: "DSE Assessment",
+    description: "Display Screen Equipment workstation assessment for office staff.",
+    price: "From £35/workstation",
+    iconColor: "text-slate-500",
+    bgColor: "bg-slate-500/10",
+  },
+  // Training Services
+  {
+    icon: GraduationCap,
+    name: "Fire Warden Training",
+    description: "Certified fire warden training course for designated staff.",
+    price: "From £75/person",
+    iconColor: "text-violet-500",
+    bgColor: "bg-violet-500/10",
+  },
+  {
+    icon: GraduationCap,
+    name: "First Aid Training",
+    description: "First aid at work training certification course.",
+    price: "From £95/person",
+    iconColor: "text-rose-500",
+    bgColor: "bg-rose-500/10",
+  },
+  {
+    icon: GraduationCap,
+    name: "Manual Handling Training",
+    description: "Safe manual handling techniques training course.",
+    price: "From £55/person",
+    iconColor: "text-indigo-500",
+    bgColor: "bg-indigo-500/10",
   },
 ];
 
