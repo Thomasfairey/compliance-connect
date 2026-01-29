@@ -39,7 +39,7 @@ const services = [
     name: "PAT Testing",
     description: "Portable appliance testing to keep your equipment safe and compliant.",
     price: "From £1.50/item",
-    color: "from-amber-500 to-orange-600",
+    iconColor: "text-amber-500",
     bgColor: "bg-amber-500/10",
   },
   {
@@ -47,7 +47,7 @@ const services = [
     name: "Fire Alarm Testing",
     description: "Comprehensive fire alarm system testing and certification.",
     price: "From £85",
-    color: "from-red-500 to-rose-600",
+    iconColor: "text-red-500",
     bgColor: "bg-red-500/10",
   },
   {
@@ -55,7 +55,7 @@ const services = [
     name: "Emergency Lighting",
     description: "Ensure your emergency lighting meets all regulatory requirements.",
     price: "From £4/fitting",
-    color: "from-emerald-500 to-green-600",
+    iconColor: "text-emerald-500",
     bgColor: "bg-emerald-500/10",
   },
   {
@@ -63,7 +63,7 @@ const services = [
     name: "Fixed Wire Testing",
     description: "Electrical installation condition reports for your premises.",
     price: "From £150",
-    color: "from-blue-500 to-indigo-600",
+    iconColor: "text-blue-500",
     bgColor: "bg-blue-500/10",
   },
 ];
@@ -279,8 +279,7 @@ export default function HomePage() {
                 transition={{ delay: index * 0.1 }}
               >
                 <div className={`w-14 h-14 ${service.bgColor} rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform`}>
-                  <service.icon className={`w-7 h-7 bg-gradient-to-br ${service.color} bg-clip-text text-transparent`} style={{ stroke: "url(#gradient)" }} />
-                  <service.icon className={`w-7 h-7 text-${service.color.split("-")[1]}-500`} />
+                  <service.icon className={`w-7 h-7 ${service.iconColor}`} />
                 </div>
                 <h3 className="font-bold text-xl text-foreground mb-2">
                   {service.name}
@@ -547,7 +546,7 @@ export default function HomePage() {
             </div>
 
             <div className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} Office Test Ltd. All rights reserved.
+              © {new Date().getFullYear()} Compliance Connect. All rights reserved.
             </div>
           </div>
         </div>

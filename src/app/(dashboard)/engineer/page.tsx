@@ -6,6 +6,7 @@ import { PageHeader, StatCard, StatusBadge } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatDate, getSlotTime } from "@/lib/utils";
+import { JobsCalendar } from "@/components/engineer/jobs-calendar";
 import {
   Wrench,
   Clock,
@@ -178,6 +179,16 @@ export default async function EngineerDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Jobs Calendar */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="text-lg">My Schedule</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <JobsCalendar jobs={myJobs} />
+        </CardContent>
+      </Card>
     </div>
   );
 }

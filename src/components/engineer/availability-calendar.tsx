@@ -70,11 +70,14 @@ export function AvailabilityCalendar({ initialAvailability = [], calendarSyncs =
     setLoading(true);
     try {
       const updates = Array.from(changes.entries()).map(([key, isAvailable]) => {
-        const [dateStr, slot] = key.split("-");
-        const slotPart = slot as "AM" | "PM";
+        // Key format is "yyyy-MM-dd-SLOT" (e.g., "2024-01-28-AM")
+        // Split on last hyphen to get date and slot separately
+        const lastHyphenIndex = key.lastIndexOf("-");
+        const dateStr = key.substring(0, lastHyphenIndex);
+        const slot = key.substring(lastHyphenIndex + 1) as "AM" | "PM";
         return {
           date: new Date(dateStr + "T00:00:00"),
-          slot: slotPart,
+          slot,
           isAvailable,
         };
       });
