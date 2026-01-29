@@ -20,7 +20,13 @@ export const metadata = {
 };
 
 export default async function DashboardPage() {
-  const user = await getOrCreateUser();
+  let user;
+  try {
+    user = await getOrCreateUser();
+  } catch (error) {
+    console.error("Auth error in dashboard:", error);
+    redirect("/sign-in");
+  }
 
   // Redirect engineers and admins to their respective dashboards
   if (user.role === "ENGINEER") {
@@ -30,10 +36,24 @@ export default async function DashboardPage() {
     redirect("/admin");
   }
 
-  const [stats, bookings] = await Promise.all([
-    getDashboardStats(),
-    getCustomerBookings(),
-  ]);
+  let stats = {
+    totalBookings: 0,
+    pendingBookings: 0,
+    completedBookings: 0,
+    totalSites: 0,
+  };
+  let bookings: Awaited<ReturnType<typeof getCustomerBookings>> = [];
+
+  try {
+    const results = await Promise.all([
+      getDashboardStats(),
+      getCustomerBookings(),
+    ]);
+    stats = results[0];
+    bookings = results[1];
+  } catch (error) {
+    console.error("Data fetch error in dashboard:", error);
+  }
 
   const recentBookings = bookings.slice(0, 5);
   const upcomingBookings = bookings.filter(

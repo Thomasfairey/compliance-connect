@@ -21,16 +21,38 @@ export const metadata = {
 };
 
 export default async function AdminDashboardPage() {
-  const user = await getOrCreateUser();
+  let user;
+  try {
+    user = await getOrCreateUser();
+  } catch (error) {
+    console.error("Auth error in admin page:", error);
+    redirect("/sign-in");
+  }
 
   if (user.role !== "ADMIN") {
     redirect("/dashboard");
   }
 
-  const [stats, bookings] = await Promise.all([
-    getAdminStats(),
-    getAllBookings(),
-  ]);
+  let stats = {
+    totalUsers: 0,
+    totalEngineers: 0,
+    totalBookings: 0,
+    pendingBookings: 0,
+    completedBookings: 0,
+    revenue: 0,
+  };
+  let bookings: Awaited<ReturnType<typeof getAllBookings>> = [];
+
+  try {
+    const results = await Promise.all([
+      getAdminStats(),
+      getAllBookings(),
+    ]);
+    stats = results[0];
+    bookings = results[1];
+  } catch (error) {
+    console.error("Data fetch error in admin page:", error);
+  }
 
   const recentBookings = bookings.slice(0, 5);
   const pendingBookings = bookings.filter(

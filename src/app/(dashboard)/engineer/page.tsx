@@ -21,17 +21,39 @@ export const metadata = {
 };
 
 export default async function EngineerDashboardPage() {
-  const user = await getOrCreateUser();
+  let user;
+  try {
+    user = await getOrCreateUser();
+  } catch (error) {
+    console.error("Auth error in engineer page:", error);
+    redirect("/sign-in");
+  }
 
   if (user.role !== "ENGINEER" && user.role !== "ADMIN") {
     redirect("/dashboard");
   }
 
-  const [stats, myJobs, availableJobs] = await Promise.all([
-    getEngineerStats(),
-    getEngineerJobs(),
-    getAvailableJobs(),
-  ]);
+  let stats = {
+    assignedJobs: 0,
+    inProgressJobs: 0,
+    completedToday: 0,
+    completedThisWeek: 0,
+  };
+  let myJobs: Awaited<ReturnType<typeof getEngineerJobs>> = [];
+  let availableJobs: Awaited<ReturnType<typeof getAvailableJobs>> = [];
+
+  try {
+    const results = await Promise.all([
+      getEngineerStats(),
+      getEngineerJobs(),
+      getAvailableJobs(),
+    ]);
+    stats = results[0];
+    myJobs = results[1];
+    availableJobs = results[2];
+  } catch (error) {
+    console.error("Data fetch error in engineer page:", error);
+  }
 
   const todaysJobs = myJobs.filter((job) => {
     const today = new Date();
