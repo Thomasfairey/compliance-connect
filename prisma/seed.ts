@@ -89,6 +89,51 @@ async function main() {
         minutesPerUnit: 10,
       },
     }),
+    prisma.service.upsert({
+      where: { slug: "thermographic-survey" },
+      update: {},
+      create: {
+        name: "Thermographic Survey",
+        slug: "thermographic-survey",
+        description: "Thermographic survey of electrical distribution boards to identify hot spots and potential failures",
+        basePrice: 45,
+        minCharge: 180,
+        unitName: "board",
+        icon: "Thermometer",
+        baseMinutes: 30,
+        minutesPerUnit: 15,
+      },
+    }),
+    prisma.service.upsert({
+      where: { slug: "thermal-imaging" },
+      update: {},
+      create: {
+        name: "Thermal Imaging",
+        slug: "thermal-imaging",
+        description: "Comprehensive thermal imaging inspection for building systems and equipment",
+        basePrice: 35,
+        minCharge: 200,
+        unitName: "area",
+        icon: "Scan",
+        baseMinutes: 45,
+        minutesPerUnit: 20,
+      },
+    }),
+    prisma.service.upsert({
+      where: { slug: "cctv-servicing" },
+      update: {},
+      create: {
+        name: "CCTV Servicing",
+        slug: "cctv-servicing",
+        description: "CCTV system inspection, maintenance, and servicing",
+        basePrice: 25,
+        minCharge: 150,
+        unitName: "camera",
+        icon: "Camera",
+        baseMinutes: 30,
+        minutesPerUnit: 10,
+      },
+    }),
   ]);
 
   console.log(`Created ${services.length} services`);

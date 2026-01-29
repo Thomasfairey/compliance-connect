@@ -575,7 +575,6 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
                       serviceId={data.serviceId}
                       siteId={data.siteId}
                       estimatedQty={data.estimatedQty}
-                      disabled={(date) => date < new Date()}
                     />
                   </CardContent>
                 </Card>

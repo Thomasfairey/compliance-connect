@@ -100,7 +100,7 @@ const features = [
 
 const testimonials = [
   {
-    quote: "Compliance Connect made our annual PAT testing a breeze. Booked online, engineer arrived on time, certificates delivered same day.",
+    quote: "OfficeTest On Demand made our annual PAT testing a breeze. Booked online, engineer arrived on time, certificates delivered same day.",
     author: "Sarah Mitchell",
     role: "Office Manager, TechCorp Ltd",
     rating: 5,
@@ -124,7 +124,7 @@ export default function HomePage() {
               <div className="w-9 h-9 gradient-primary rounded-xl flex items-center justify-center shadow-lg">
                 <Shield className="w-5 h-5 text-white" />
               </div>
-              <span className="font-bold text-lg">Compliance Connect</span>
+              <span className="font-bold text-lg">OfficeTest On Demand</span>
             </Link>
 
             <div className="flex items-center gap-3">
@@ -492,7 +492,7 @@ export default function HomePage() {
             <span className="text-gradient-accent">compliance?</span>
           </h2>
           <p className="text-xl text-white/70 mb-10 max-w-2xl mx-auto">
-            Join thousands of businesses who trust Compliance Connect.
+            Join thousands of businesses who trust OfficeTest On Demand.
             Book your first test today — it takes less than a minute.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -531,7 +531,7 @@ export default function HomePage() {
                 <Shield className="w-5 h-5 text-white" />
               </div>
               <div>
-                <span className="font-bold text-lg">Compliance Connect</span>
+                <span className="font-bold text-lg">OfficeTest On Demand</span>
                 <p className="text-sm text-muted-foreground">Smart compliance testing</p>
               </div>
             </div>
@@ -546,7 +546,7 @@ export default function HomePage() {
             </div>
 
             <div className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} Compliance Connect. All rights reserved.
+              © {new Date().getFullYear()} OfficeTest On Demand. All rights reserved.
             </div>
           </div>
         </div>

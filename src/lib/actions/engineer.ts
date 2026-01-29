@@ -67,10 +67,12 @@ export async function getOrCreateEngineerProfile(): Promise<EngineerProfileWithR
 
   // Create profile if it doesn't exist
   if (!profile) {
+    // For demo mode: auto-approve engineers immediately
     profile = await db.engineerProfile.create({
       data: {
         userId: user.id,
-        status: "PENDING_APPROVAL",
+        status: "APPROVED", // Auto-approve for demo
+        approvedAt: new Date(),
       },
       include: {
         user: true,

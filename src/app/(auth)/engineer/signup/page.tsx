@@ -16,7 +16,7 @@ export default function EngineerSignupPage() {
               <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
                 <Shield className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xl font-bold">Compliance Connect</span>
+              <span className="text-xl font-bold">OfficeTest On Demand</span>
             </Link>
           </div>
 
@@ -26,7 +26,7 @@ export default function EngineerSignupPage() {
                 Join Our Network
               </h1>
               <p className="text-lg text-white/70">
-                Become a Compliance Connect engineer and access a steady stream of quality compliance jobs.
+                Become a OfficeTest On Demand engineer and access a steady stream of quality compliance jobs.
               </p>
             </div>
 
@@ -64,7 +64,7 @@ export default function EngineerSignupPage() {
                 </div>
               </div>
               <p className="text-white/80 italic">
-                &ldquo;Since joining Compliance Connect, I&apos;ve been able to grow my business by 40%. The platform makes it easy to manage my schedule and find quality jobs.&rdquo;
+                &ldquo;Since joining OfficeTest On Demand, I&apos;ve been able to grow my business by 40%. The platform makes it easy to manage my schedule and find quality jobs.&rdquo;
               </p>
             </div>
           </div>
@@ -82,7 +82,7 @@ export default function EngineerSignupPage() {
             <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
               <Shield className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold">Compliance Connect</span>
+            <span className="text-xl font-bold">OfficeTest On Demand</span>
           </Link>
         </div>
 
@@ -96,7 +96,7 @@ export default function EngineerSignupPage() {
               Create your account
             </h2>
             <p className="text-muted-foreground mt-2">
-              Start your journey as a Compliance Connect engineer. After signup, you&apos;ll complete your profile and await approval.
+              Start your journey as a OfficeTest On Demand engineer. After signup, you&apos;ll complete your profile and await approval.
             </p>
           </div>
 

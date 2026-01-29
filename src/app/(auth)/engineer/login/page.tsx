@@ -16,7 +16,7 @@ export default function EngineerLoginPage() {
               <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
                 <Shield className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xl font-bold">Compliance Connect</span>
+              <span className="text-xl font-bold">OfficeTest On Demand</span>
             </Link>
           </div>
 
@@ -26,7 +26,7 @@ export default function EngineerLoginPage() {
                 Engineer Portal
               </h1>
               <p className="text-lg text-white/70">
-                Access your jobs, manage your availability, and grow your business with Compliance Connect.
+                Access your jobs, manage your availability, and grow your business with OfficeTest On Demand.
               </p>
             </div>
 
@@ -76,7 +76,7 @@ export default function EngineerLoginPage() {
             <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
               <Shield className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold">Compliance Connect</span>
+            <span className="text-xl font-bold">OfficeTest On Demand</span>
           </Link>
         </div>
 

@@ -12,7 +12,6 @@ import {
   addDays,
   isSameMonth,
   isSameDay,
-  isBefore,
   startOfDay,
 } from "date-fns";
 import { ChevronLeft, ChevronRight, Sparkles, Loader2 } from "lucide-react";
@@ -203,8 +202,8 @@ export function PricingCalendar({
                 const isCurrentMonth = isSameMonth(dayDate, currentMonth);
                 const isSelected = selected && isSameDay(dayDate, selected);
                 const isToday = isSameDay(dayDate, today);
-                const isPast = isBefore(dayDate, today);
-                const isDisabled = disabled?.(dayDate) || isPast;
+                // Demo mode: allow all dates to be selected
+                const isDisabled = disabled?.(dayDate) ?? false;
 
                 return (
                   <button

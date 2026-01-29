@@ -287,7 +287,7 @@ export function EngineerOnboardingWizard({ profile, services }: Props) {
                     <div className="w-20 h-20 rounded-2xl gradient-primary flex items-center justify-center mx-auto mb-4">
                       <Wrench className="w-10 h-10 text-white" />
                     </div>
-                    <CardTitle className="text-2xl">Welcome to Compliance Connect</CardTitle>
+                    <CardTitle className="text-2xl">Welcome to OfficeTest On Demand</CardTitle>
                     <CardDescription className="text-base">
                       Let&apos;s set up your engineer profile. This will help us match you with the right jobs in your area.
                     </CardDescription>

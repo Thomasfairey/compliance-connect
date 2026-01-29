@@ -11,8 +11,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "Compliance Connect",
-    template: "%s | Compliance Connect",
+    default: "OfficeTest On Demand",
+    template: "%s | OfficeTest On Demand",
   },
   description:
     "Book compliance testing services for your business. PAT testing, fire alarm testing, emergency lighting, and more.",

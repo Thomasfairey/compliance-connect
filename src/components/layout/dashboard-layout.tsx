@@ -99,7 +99,7 @@ export function DashboardLayout({
             <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
               <Shield className="w-5 h-5 text-white" />
             </div>
-            <span className="font-semibold text-lg">Compliance Connect</span>
+            <span className="font-semibold text-lg">OfficeTest On Demand</span>
           </div>
 
           {/* Navigation */}
@@ -140,7 +140,7 @@ export function DashboardLayout({
             <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
               <Shield className="w-5 h-5 text-white" />
             </div>
-            <span className="font-semibold">Compliance Connect</span>
+            <span className="font-semibold">OfficeTest On Demand</span>
           </Link>
 
           <div className="flex items-center gap-3">

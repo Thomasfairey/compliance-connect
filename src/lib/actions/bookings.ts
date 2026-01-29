@@ -240,6 +240,87 @@ export async function getBookingById(
   return booking;
 }
 
+// Find the best available engineer for a booking
+async function findAvailableEngineer(
+  serviceId: string,
+  sitePostcode: string,
+  scheduledDate: Date,
+  slot: string
+): Promise<string | null> {
+  // Extract postcode prefix (e.g., "SW1" from "SW1A 1AA")
+  const postcodePrefix = sitePostcode.replace(/\s/g, "").toUpperCase().slice(0, -3);
+
+  // Find engineers who:
+  // 1. Have APPROVED status
+  // 2. Have competency for this service
+  // 3. Cover this postcode area
+  const eligibleEngineers = await db.engineerProfile.findMany({
+    where: {
+      status: "APPROVED",
+      competencies: {
+        some: { serviceId },
+      },
+      coverageAreas: {
+        some: {
+          postcodePrefix: {
+            in: [postcodePrefix, postcodePrefix.slice(0, 2), postcodePrefix.slice(0, 1)],
+          },
+        },
+      },
+    },
+    include: {
+      user: true,
+      availability: {
+        where: {
+          date: scheduledDate,
+          slot: slot === "AM" || slot === "PM" ? slot : undefined,
+        },
+      },
+    },
+  });
+
+  if (eligibleEngineers.length === 0) {
+    return null;
+  }
+
+  // Check which engineers are available (not already booked)
+  const dateStart = new Date(scheduledDate);
+  dateStart.setHours(0, 0, 0, 0);
+  const dateEnd = new Date(scheduledDate);
+  dateEnd.setHours(23, 59, 59, 999);
+
+  const existingBookings = await db.booking.findMany({
+    where: {
+      scheduledDate: { gte: dateStart, lte: dateEnd },
+      slot,
+      engineerId: { not: null },
+      status: { in: ["CONFIRMED", "IN_PROGRESS"] },
+    },
+    select: { engineerId: true },
+  });
+
+  const bookedEngineerIds = new Set(existingBookings.map(b => b.engineerId));
+
+  // Find first available engineer
+  for (const engineer of eligibleEngineers) {
+    // Skip if already booked
+    if (bookedEngineerIds.has(engineer.userId)) {
+      continue;
+    }
+
+    // Check if they have availability set (and it's true) or no availability set (assume available)
+    const availabilityRecord = engineer.availability.find(a =>
+      a.date.toDateString() === scheduledDate.toDateString()
+    );
+
+    if (!availabilityRecord || availabilityRecord.isAvailable) {
+      return engineer.userId;
+    }
+  }
+
+  return null;
+}
+
 export async function createBooking(
   input: CreateBookingInput
 ): Promise<{ success: boolean; data?: BookingWithRelations; error?: string }> {
@@ -302,6 +383,14 @@ export async function createBooking(
     // Calculate estimated duration
     const duration = calculateDuration(service, validated.estimatedQty);
 
+    // Auto-assign an available engineer
+    const assignedEngineerId = await findAvailableEngineer(
+      validated.serviceId,
+      site.postcode,
+      validated.scheduledDate,
+      validated.slot
+    );
+
     const booking = await db.booking.create({
       data: {
         reference: generateBookingReference(),
@@ -316,6 +405,9 @@ export async function createBooking(
         discountPercent: pricing.discountPercent,
         estimatedDuration: duration.estimatedMinutes,
         notes: validated.notes,
+        // Auto-assign engineer and set status to CONFIRMED if engineer found
+        engineerId: assignedEngineerId,
+        status: assignedEngineerId ? "CONFIRMED" : "PENDING",
       },
       include: {
         customer: true,
@@ -328,6 +420,10 @@ export async function createBooking(
 
     revalidatePath("/dashboard");
     revalidatePath("/bookings");
+    if (assignedEngineerId) {
+      revalidatePath("/engineer");
+      revalidatePath("/engineer/jobs");
+    }
 
     return { success: true, data: booking };
   } catch (error) {
