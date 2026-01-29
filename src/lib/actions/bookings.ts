@@ -182,21 +182,26 @@ export async function getDateRangeDiscounts(
 }
 
 export async function getCustomerBookings(): Promise<BookingWithRelations[]> {
-  const user = await requireUser();
+  try {
+    const user = await requireUser();
 
-  const bookings = await db.booking.findMany({
-    where: { customerId: user.id },
-    include: {
-      customer: true,
-      site: true,
-      service: true,
-      engineer: true,
-      assets: true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
+    const bookings = await db.booking.findMany({
+      where: { customerId: user.id },
+      include: {
+        customer: true,
+        site: true,
+        service: true,
+        engineer: true,
+        assets: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
 
-  return bookings;
+    return bookings;
+  } catch (error) {
+    console.error("Error getting customer bookings:", error);
+    return [];
+  }
 }
 
 export async function getBookingById(
@@ -476,42 +481,52 @@ export async function cancelBooking(
 
 // Engineer actions
 export async function getAvailableJobs(): Promise<BookingWithRelations[]> {
-  await requireRole(["ENGINEER", "ADMIN"]);
+  try {
+    await requireRole(["ENGINEER", "ADMIN"]);
 
-  const bookings = await db.booking.findMany({
-    where: {
-      status: { in: ["PENDING", "CONFIRMED"] },
-      engineerId: null,
-    },
-    include: {
-      customer: true,
-      site: true,
-      service: true,
-      engineer: true,
-      assets: true,
-    },
-    orderBy: { scheduledDate: "asc" },
-  });
+    const bookings = await db.booking.findMany({
+      where: {
+        status: { in: ["PENDING", "CONFIRMED"] },
+        engineerId: null,
+      },
+      include: {
+        customer: true,
+        site: true,
+        service: true,
+        engineer: true,
+        assets: true,
+      },
+      orderBy: { scheduledDate: "asc" },
+    });
 
-  return bookings;
+    return bookings;
+  } catch (error) {
+    console.error("Error getting available jobs:", error);
+    return [];
+  }
 }
 
 export async function getEngineerJobs(): Promise<BookingWithRelations[]> {
-  const user = await requireRole(["ENGINEER", "ADMIN"]);
+  try {
+    const user = await requireRole(["ENGINEER", "ADMIN"]);
 
-  const bookings = await db.booking.findMany({
-    where: { engineerId: user.id },
-    include: {
-      customer: true,
-      site: true,
-      service: true,
-      engineer: true,
-      assets: true,
-    },
-    orderBy: { scheduledDate: "asc" },
-  });
+    const bookings = await db.booking.findMany({
+      where: { engineerId: user.id },
+      include: {
+        customer: true,
+        site: true,
+        service: true,
+        engineer: true,
+        assets: true,
+      },
+      orderBy: { scheduledDate: "asc" },
+    });
 
-  return bookings;
+    return bookings;
+  } catch (error) {
+    console.error("Error getting engineer jobs:", error);
+    return [];
+  }
 }
 
 export async function assignJobToSelf(
@@ -648,20 +663,25 @@ export async function completeJob(
 
 // Admin actions
 export async function getAllBookings(): Promise<BookingWithRelations[]> {
-  await requireRole(["ADMIN"]);
+  try {
+    await requireRole(["ADMIN"]);
 
-  const bookings = await db.booking.findMany({
-    include: {
-      customer: true,
-      site: true,
-      service: true,
-      engineer: true,
-      assets: true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
+    const bookings = await db.booking.findMany({
+      include: {
+        customer: true,
+        site: true,
+        service: true,
+        engineer: true,
+        assets: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
 
-  return bookings;
+    return bookings;
+  } catch (error) {
+    console.error("Error getting all bookings:", error);
+    return [];
+  }
 }
 
 export async function assignEngineerToBooking(

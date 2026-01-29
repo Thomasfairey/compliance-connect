@@ -40,68 +40,88 @@ export async function updateUserProfile(input: {
 }
 
 export async function getDashboardStats(): Promise<DashboardStats> {
-  const user = await requireUser();
+  try {
+    const user = await requireUser();
 
-  const [totalBookings, pendingBookings, completedBookings, totalSites] =
-    await Promise.all([
-      db.booking.count({ where: { customerId: user.id } }),
-      db.booking.count({
-        where: { customerId: user.id, status: { in: ["PENDING", "CONFIRMED"] } },
-      }),
-      db.booking.count({ where: { customerId: user.id, status: "COMPLETED" } }),
-      db.site.count({ where: { userId: user.id } }),
-    ]);
+    const [totalBookings, pendingBookings, completedBookings, totalSites] =
+      await Promise.all([
+        db.booking.count({ where: { customerId: user.id } }),
+        db.booking.count({
+          where: { customerId: user.id, status: { in: ["PENDING", "CONFIRMED"] } },
+        }),
+        db.booking.count({ where: { customerId: user.id, status: "COMPLETED" } }),
+        db.site.count({ where: { userId: user.id } }),
+      ]);
 
-  return {
-    totalBookings,
-    pendingBookings,
-    completedBookings,
-    totalSites,
-  };
+    return {
+      totalBookings,
+      pendingBookings,
+      completedBookings,
+      totalSites,
+    };
+  } catch (error) {
+    console.error("Error getting dashboard stats:", error);
+    return {
+      totalBookings: 0,
+      pendingBookings: 0,
+      completedBookings: 0,
+      totalSites: 0,
+    };
+  }
 }
 
 export async function getEngineerStats(): Promise<EngineerStats> {
-  const user = await requireRole(["ENGINEER", "ADMIN"]);
+  try {
+    const user = await requireRole(["ENGINEER", "ADMIN"]);
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-  const weekStart = new Date(today);
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    const weekStart = new Date(today);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
 
-  const [assignedJobs, inProgressJobs, completedToday, completedThisWeek] =
-    await Promise.all([
-      db.booking.count({
-        where: {
-          engineerId: user.id,
-          status: { in: ["CONFIRMED", "IN_PROGRESS"] },
-        },
-      }),
-      db.booking.count({
-        where: { engineerId: user.id, status: "IN_PROGRESS" },
-      }),
-      db.booking.count({
-        where: {
-          engineerId: user.id,
-          status: "COMPLETED",
-          completedAt: { gte: today },
-        },
-      }),
-      db.booking.count({
-        where: {
-          engineerId: user.id,
-          status: "COMPLETED",
-          completedAt: { gte: weekStart },
-        },
-      }),
-    ]);
+    const [assignedJobs, inProgressJobs, completedToday, completedThisWeek] =
+      await Promise.all([
+        db.booking.count({
+          where: {
+            engineerId: user.id,
+            status: { in: ["CONFIRMED", "IN_PROGRESS"] },
+          },
+        }),
+        db.booking.count({
+          where: { engineerId: user.id, status: "IN_PROGRESS" },
+        }),
+        db.booking.count({
+          where: {
+            engineerId: user.id,
+            status: "COMPLETED",
+            completedAt: { gte: today },
+          },
+        }),
+        db.booking.count({
+          where: {
+            engineerId: user.id,
+            status: "COMPLETED",
+            completedAt: { gte: weekStart },
+          },
+        }),
+      ]);
 
-  return {
-    assignedJobs,
-    inProgressJobs,
-    completedToday,
-    completedThisWeek,
-  };
+    return {
+      assignedJobs,
+      inProgressJobs,
+      completedToday,
+      completedThisWeek,
+    };
+  } catch (error) {
+    console.error("Error getting engineer stats:", error);
+    return {
+      assignedJobs: 0,
+      inProgressJobs: 0,
+      completedToday: 0,
+      completedThisWeek: 0,
+    };
+  }
 }
 
 // Admin actions
@@ -160,33 +180,45 @@ export async function getAdminStats(): Promise<{
   completedBookings: number;
   revenue: number;
 }> {
-  await requireRole(["ADMIN"]);
+  try {
+    await requireRole(["ADMIN"]);
 
-  const [
-    totalUsers,
-    totalEngineers,
-    totalBookings,
-    pendingBookings,
-    completedBookings,
-    revenueAgg,
-  ] = await Promise.all([
-    db.user.count(),
-    db.user.count({ where: { role: "ENGINEER" } }),
-    db.booking.count(),
-    db.booking.count({ where: { status: { in: ["PENDING", "CONFIRMED"] } } }),
-    db.booking.count({ where: { status: "COMPLETED" } }),
-    db.booking.aggregate({
-      where: { status: "COMPLETED" },
-      _sum: { quotedPrice: true },
-    }),
-  ]);
+    const [
+      totalUsers,
+      totalEngineers,
+      totalBookings,
+      pendingBookings,
+      completedBookings,
+      revenueAgg,
+    ] = await Promise.all([
+      db.user.count(),
+      db.user.count({ where: { role: "ENGINEER" } }),
+      db.booking.count(),
+      db.booking.count({ where: { status: { in: ["PENDING", "CONFIRMED"] } } }),
+      db.booking.count({ where: { status: "COMPLETED" } }),
+      db.booking.aggregate({
+        where: { status: "COMPLETED" },
+        _sum: { quotedPrice: true },
+      }),
+    ]);
 
-  return {
-    totalUsers,
-    totalEngineers,
-    totalBookings,
-    pendingBookings,
-    completedBookings,
-    revenue: revenueAgg._sum.quotedPrice || 0,
-  };
+    return {
+      totalUsers,
+      totalEngineers,
+      totalBookings,
+      pendingBookings,
+      completedBookings,
+      revenue: revenueAgg._sum.quotedPrice || 0,
+    };
+  } catch (error) {
+    console.error("Error getting admin stats:", error);
+    return {
+      totalUsers: 0,
+      totalEngineers: 0,
+      totalBookings: 0,
+      pendingBookings: 0,
+      completedBookings: 0,
+      revenue: 0,
+    };
+  }
 }
