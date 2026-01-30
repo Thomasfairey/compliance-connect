@@ -17,13 +17,13 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 export async function requireUser(): Promise<User> {
-  const user = await getCurrentUser();
-
-  if (!user) {
+  // Use getOrCreateUser to ensure user exists
+  try {
+    const user = await getOrCreateUser();
+    return user;
+  } catch {
     throw new Error("Unauthorized");
   }
-
-  return user;
 }
 
 export async function requireRole(roles: Role[]): Promise<User> {

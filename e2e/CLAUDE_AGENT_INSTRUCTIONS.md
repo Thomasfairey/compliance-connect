@@ -1,19 +1,23 @@
 # Claude Chrome Agent - E2E Testing Instructions
 
-## Prerequisites
+## !! CRITICAL - READ THIS FIRST !!
 
-- Application running at: `http://localhost:3000`
-- Database seeded with test data (`npm run db:seed`)
+**DO NOT USE LOCALHOST. THE SERVER IS NOT RUNNING LOCALLY.**
+
+**TEST URL: https://www.complianceod.co.uk**
+
+This is a PRODUCTION test. The application is deployed and running at the URL above.
+There is NO local development server. Do not attempt to connect to localhost:3000.
 
 ---
 
 ## Test User Credentials
 
 | Role | Username | Password |
-|------|-------|----------|
-| Customer | `testcustomer1` | `TestPassword123!` |
-| Engineer | `testuser1` | `TestPassword123!` |
-| Admin | `testadmin1` | `TestPassword123!` |
+|------|----------|----------|
+| Customer | `testcustomer1` | `ComplianceTest2026!` |
+| Engineer | `testuser1` | `ComplianceTest2026!` |
+| Admin | `testadmin1` | `ComplianceTest2026!` |
 
 ---
 
@@ -21,17 +25,17 @@
 
 ### Test 1.1: Customer Login
 
-1. Navigate to `http://localhost:3000`
-2. Click the "Sign In" button in the navigation
-3. Enter email: `test-customer@example.com`
-4. Enter password: `TestPassword123!`
+1. Navigate to `https://www.complianceod.co.uk`
+2. Click the "Sign In" button in the top right navigation
+3. Enter username: `testcustomer1`
+4. Enter password: `ComplianceTest2026!`
 5. Click "Continue" or "Sign In"
 6. **Expected**: Redirected to `/dashboard`
 7. **Expected**: See "Welcome" message and customer dashboard
 
 ### Test 1.2: View Dashboard
 
-1. After login, verify you are at `/dashboard`
+1. After login, verify you are at `https://www.complianceod.co.uk/dashboard`
 2. **Expected**: See the following elements:
    - "Welcome" greeting with user name
    - "Book New Service" card/button
@@ -41,7 +45,7 @@
 
 ### Test 1.3: Create a New Booking
 
-1. From dashboard, click "Book New Service" or navigate to `http://localhost:3000/bookings/new`
+1. From dashboard, click "Book New Service" or navigate to `https://www.complianceod.co.uk/bookings/new`
 2. Wait for page to load
 3. **Step 1 - Select Site**:
    - Look for site cards or a dropdown
@@ -74,7 +78,7 @@
 
 ### Test 1.4: View Bookings List
 
-1. Navigate to `http://localhost:3000/bookings`
+1. Navigate to `https://www.complianceod.co.uk/bookings`
 2. **Expected**: See "My Bookings" heading
 3. **Expected**: See a list/table of bookings with:
    - Booking reference (CC-XXXXX format)
@@ -93,7 +97,7 @@
 
 ### Test 1.5: Book a Service Bundle
 
-1. Navigate to `http://localhost:3000/bookings/bundles`
+1. Navigate to `https://www.complianceod.co.uk/bookings/bundles`
 2. **Expected**: See "Service Bundles" heading
 3. **Expected**: See bundle cards with:
    - Bundle name (e.g., "Office Essentials", "Full Compliance Package")
@@ -120,7 +124,7 @@
 
 ### Test 1.6: Manage Sites
 
-1. Navigate to `http://localhost:3000/sites`
+1. Navigate to `https://www.complianceod.co.uk/sites`
 2. **Expected**: See "My Sites" heading
 3. **Expected**: See list of sites with addresses
 4. **Create New Site**:
@@ -138,7 +142,7 @@
 
 ### Test 1.7: Complete Site Questionnaire
 
-1. Navigate to `http://localhost:3000/sites`
+1. Navigate to `https://www.complianceod.co.uk/sites`
 2. Click on any site card/row
 3. **Expected**: Navigate to site detail page `/sites/[id]`
 4. Look for "Complete Profile" or "Questionnaire" button/link
@@ -162,7 +166,7 @@
 
 ### Test 1.8: Compliance Tracker
 
-1. Navigate to `http://localhost:3000/compliance`
+1. Navigate to `https://www.complianceod.co.uk/compliance`
 2. **Expected**: See "Compliance Tracker" heading
 3. **Expected**: See status summary cards:
    - Overdue (red styling)
@@ -190,16 +194,16 @@
 ### Test 2.1: Engineer Login
 
 1. Sign out of current account (click profile icon, then "Sign Out")
-2. Navigate to `http://localhost:3000`
+2. Navigate to `https://www.complianceod.co.uk`
 3. Click "Sign In"
-4. Enter email: `test-engineer@example.com`
-5. Enter password: `TestPassword123!`
+4. Enter username: `testuser1`
+5. Enter password: `ComplianceTest2026!`
 6. Click "Continue"
 7. **Expected**: Redirected to `/engineer` dashboard
 
 ### Test 2.2: Engineer Dashboard
 
-1. Verify you are at `/engineer`
+1. Verify you are at `https://www.complianceod.co.uk/engineer`
 2. **Expected**: See "Hello" greeting with engineer name
 3. **Expected**: See quick link cards:
    - "My Jobs"
@@ -209,7 +213,7 @@
 
 ### Test 2.3: View Jobs
 
-1. Click "My Jobs" card or navigate to `http://localhost:3000/engineer/jobs`
+1. Click "My Jobs" card or navigate to `https://www.complianceod.co.uk/engineer/jobs`
 2. **Expected**: See "My Jobs" heading
 3. **Expected**: See tabs:
    - "Active" (default selected)
@@ -266,7 +270,7 @@
 
 ### Test 2.6: Claim Available Job
 
-1. Navigate to `http://localhost:3000/engineer/jobs`
+1. Navigate to `https://www.complianceod.co.uk/engineer/jobs`
 2. Click "Available" tab
 3. If jobs are available:
    - Click on first available job
@@ -276,7 +280,7 @@
 
 ### Test 2.7: Test Notifications
 
-1. Navigate to `http://localhost:3000/engineer`
+1. Navigate to `https://www.complianceod.co.uk/engineer`
 2. Find notification bell icon in header (usually top right)
 3. Click the notification bell
 4. **Expected**: Dropdown opens showing:
@@ -299,7 +303,7 @@
 1. Open browser DevTools (F12 or right-click > Inspect)
 2. Toggle device toolbar (Ctrl+Shift+M or click device icon)
 3. Select "iPhone SE" or set width to 375px
-4. Navigate to `http://localhost:3000/engineer`
+4. Navigate to `https://www.complianceod.co.uk/engineer`
 5. **Expected**: See mobile bottom navigation bar with:
    - Dashboard icon
    - My Jobs icon
@@ -315,16 +319,16 @@
 ### Test 3.1: Admin Login
 
 1. Sign out of engineer account
-2. Navigate to `http://localhost:3000`
+2. Navigate to `https://www.complianceod.co.uk`
 3. Click "Sign In"
-4. Enter email: `test-admin@example.com`
-5. Enter password: `TestPassword123!`
+4. Enter username: `testadmin1`
+5. Enter password: `ComplianceTest2026!`
 6. Click "Continue"
 7. **Expected**: Redirected to `/admin` dashboard
 
 ### Test 3.2: Admin Dashboard
 
-1. Verify you are at `/admin`
+1. Verify you are at `https://www.complianceod.co.uk/admin`
 2. **Expected**: See "Admin Dashboard" heading
 3. **Expected**: See "Welcome" message
 4. **Expected**: See quick link cards:
@@ -334,7 +338,7 @@
 
 ### Test 3.3: Manage Bookings
 
-1. Click "All Bookings" or navigate to `http://localhost:3000/admin/bookings`
+1. Click "All Bookings" or navigate to `https://www.complianceod.co.uk/admin/bookings`
 2. **Expected**: See "Bookings" heading
 3. **Expected**: See table or list of ALL bookings (all customers)
 4. **Test Search**:
@@ -392,7 +396,7 @@
 
 ### Test 3.7: Manage Engineers
 
-1. Navigate to `http://localhost:3000/admin/engineers`
+1. Navigate to `https://www.complianceod.co.uk/admin/engineers`
 2. **Expected**: See "Engineers" or "Users" heading
 3. **Expected**: See table/list of users with columns:
    - Name
@@ -421,7 +425,7 @@
 
 ### Test 3.9: Manage Services
 
-1. Navigate to `http://localhost:3000/admin/services`
+1. Navigate to `https://www.complianceod.co.uk/admin/services`
 2. **Expected**: See "Services" heading
 3. **Expected**: See list of services:
    - PAT Testing
@@ -453,11 +457,11 @@
 ### Test 3.11: Access Control Test
 
 1. Sign out of admin account
-2. Sign in as customer: `test-customer@example.com`
-3. Manually navigate to `http://localhost:3000/admin`
+2. Sign in as customer: `testcustomer1`
+3. Manually navigate to `https://www.complianceod.co.uk/admin`
 4. **Expected**: Redirected to `/dashboard` (customer dashboard)
 5. **Expected**: NOT able to access admin pages
-6. Manually navigate to `http://localhost:3000/admin/bookings`
+6. Manually navigate to `https://www.complianceod.co.uk/admin/bookings`
 7. **Expected**: Redirected away from admin area
 
 ---
@@ -467,7 +471,7 @@
 ### Test 4.1: View Discount Calendar
 
 1. Sign in as customer
-2. Navigate to `http://localhost:3000/bookings/new`
+2. Navigate to `https://www.complianceod.co.uk/bookings/new`
 3. Complete steps until you reach the calendar (date selection step)
 4. **Expected**: Calendar displays with:
    - Some dates with green badges showing "X% off"
@@ -477,7 +481,7 @@
 
 ### Test 4.2: Bundle Discount Display
 
-1. Navigate to `http://localhost:3000/bookings/bundles`
+1. Navigate to `https://www.complianceod.co.uk/bookings/bundles`
 2. Select any bundle with "Save X%" badge
 3. On quantity configuration page:
 4. **Expected**: See pricing breakdown:
@@ -490,8 +494,8 @@
 
 ### Test 4.3: Engineer Route View
 
-1. Sign in as engineer: `test-engineer@example.com`
-2. Navigate to `http://localhost:3000/engineer/jobs`
+1. Sign in as engineer: `testuser1`
+2. Navigate to `https://www.complianceod.co.uk/engineer/jobs`
 3. Look for "Today's Route" or "Daily Route" section
 4. **Expected**: See ordered list of jobs for today:
    - Job 1, Job 2, Job 3, etc.
@@ -506,9 +510,9 @@
 
 ### Test 5.1: Invalid Login
 
-1. Navigate to `http://localhost:3000`
+1. Navigate to `https://www.complianceod.co.uk`
 2. Click "Sign In"
-3. Enter email: `invalid@example.com`
+3. Enter username: `invaliduser`
 4. Enter password: `wrongpassword`
 5. Click "Continue"
 6. **Expected**: Error message "Invalid credentials" or similar
@@ -517,7 +521,7 @@
 ### Test 5.2: Required Field Validation
 
 1. Sign in as customer
-2. Navigate to `http://localhost:3000/sites/new`
+2. Navigate to `https://www.complianceod.co.uk/sites/new`
 3. Leave all fields empty
 4. Click "Save" or "Create"
 5. **Expected**: Validation errors appear:
@@ -559,23 +563,12 @@ After completing all tests, verify:
 
 ---
 
-## TROUBLESHOOTING
+## IMPORTANT REMINDERS
 
-### Page not loading
-- Verify dev server is running: `npm run dev`
-- Check terminal for errors
-- Try refreshing the page
-
-### Login not working
-- Verify test users exist in Clerk dashboard
-- Check email/password spelling
-- Clear browser cookies and try again
-
-### Database errors
-- Run `npm run db:push` to sync schema
-- Run `npm run db:seed` to reset test data
-
-### Element not found
-- Wait 2-3 seconds for page to fully load
-- Try scrolling down to find the element
-- Check if element is inside a modal/dropdown that needs to be opened first
+1. **BASE URL**: `https://www.complianceod.co.uk` (NOT localhost)
+2. **This is PRODUCTION** - no local server needed
+3. **Credentials use USERNAME not email**:
+   - Customer: `testcustomer1`
+   - Engineer: `testuser1`
+   - Admin: `testadmin1`
+4. Password for all: `ComplianceTest2026!`

@@ -22,6 +22,15 @@ export const metadata = {
 };
 
 async function getCustomerData(userId: string) {
+  // Return empty state if no userId
+  if (!userId) {
+    return {
+      stats: { totalBookings: 0, pendingBookings: 0, completedBookings: 0, totalSites: 0 },
+      recentBookings: [],
+      upcomingBookings: [],
+    };
+  }
+
   try {
     const [totalBookings, pendingBookings, completedBookings, totalSites, bookings] =
       await Promise.all([
