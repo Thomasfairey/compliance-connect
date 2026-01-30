@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getOrCreateUser } from "@/lib/auth";
 import { getAllBookings } from "@/lib/actions";
+
+export const dynamic = "force-dynamic";
 import { PageHeader, StatusBadge } from "@/components/shared";
 import {
   Table,

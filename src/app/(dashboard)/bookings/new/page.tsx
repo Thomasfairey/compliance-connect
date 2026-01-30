@@ -1,6 +1,8 @@
 import { getServices, getUserSites } from "@/lib/actions";
 import { BookingWizard } from "@/components/booking/booking-wizard";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "New Booking",
 };

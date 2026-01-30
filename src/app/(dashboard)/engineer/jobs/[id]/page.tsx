@@ -1,6 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { getOrCreateUser } from "@/lib/auth";
 import { getBookingById } from "@/lib/actions";
+
+export const dynamic = "force-dynamic";
 import { PageHeader, StatusBadge } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";

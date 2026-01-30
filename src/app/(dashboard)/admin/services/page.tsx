@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { getOrCreateUser } from "@/lib/auth";
 import { getServices } from "@/lib/actions";
+
+export const dynamic = "force-dynamic";
 import { PageHeader } from "@/components/shared";
 import { Card, CardContent } from "@/components/ui/card";
 import {

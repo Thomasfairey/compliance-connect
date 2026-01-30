@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { getOrCreateEngineerProfile, getAvailableServices } from "@/lib/actions/engineer";
 import { EngineerOnboardingWizard } from "@/components/engineer/onboarding-wizard";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Engineer Onboarding",
 };

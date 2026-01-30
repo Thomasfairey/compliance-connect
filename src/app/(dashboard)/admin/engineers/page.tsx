@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { getOrCreateUser } from "@/lib/auth";
 import { getAllUsers, getAllEngineerProfiles } from "@/lib/actions";
+
+export const dynamic = "force-dynamic";
 import { PageHeader } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
