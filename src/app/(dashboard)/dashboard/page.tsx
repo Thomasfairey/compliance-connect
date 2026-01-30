@@ -77,9 +77,10 @@ export default async function DashboardPage() {
   let user;
   try {
     user = await getOrCreateUser();
+    console.log("DashboardPage: Got user:", user.id, user.role);
   } catch (error) {
     console.error("DashboardPage: Failed to get user:", error);
-    throw error;
+    throw new Error(`Failed to get user: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   // Redirect engineers and admins to their respective dashboards
@@ -92,10 +93,12 @@ export default async function DashboardPage() {
 
   let customerData;
   try {
+    console.log("DashboardPage: Fetching customer data for:", user.id);
     customerData = await getCustomerData(user.id);
+    console.log("DashboardPage: Got customer data:", JSON.stringify(customerData.stats));
   } catch (error) {
     console.error("DashboardPage: Failed to get customer data:", error);
-    throw error;
+    throw new Error(`Failed to get customer data: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   const { stats, recentBookings, upcomingBookings } = customerData;

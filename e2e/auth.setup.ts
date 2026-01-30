@@ -43,7 +43,7 @@ setup("authenticate as customer", async ({ page }) => {
 
   // Wait for password field and fill
   await page.waitForSelector('input[type="password"]');
-  await page.getByLabel(/password/i).fill(TEST_USERS.customer.password);
+  await page.locator('input[type="password"]').fill(TEST_USERS.customer.password);
   await page.getByRole("button", { name: /continue|sign in/i }).click();
 
   // Wait for redirect to dashboard
@@ -69,7 +69,7 @@ setup("authenticate as engineer", async ({ page }) => {
   await page.getByRole("button", { name: /continue/i }).click();
 
   await page.waitForSelector('input[type="password"]');
-  await page.getByLabel(/password/i).fill(TEST_USERS.engineer.password);
+  await page.locator('input[type="password"]').fill(TEST_USERS.engineer.password);
   await page.getByRole("button", { name: /continue|sign in/i }).click();
 
   // Engineers go to /engineer dashboard
@@ -93,7 +93,7 @@ setup("authenticate as admin", async ({ page }) => {
   await page.getByRole("button", { name: /continue/i }).click();
 
   await page.waitForSelector('input[type="password"]');
-  await page.getByLabel(/password/i).fill(TEST_USERS.admin.password);
+  await page.locator('input[type="password"]').fill(TEST_USERS.admin.password);
   await page.getByRole("button", { name: /continue|sign in/i }).click();
 
   // Admins go to /admin dashboard
