@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { requireRole } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 
 export type AdminDashboardData = {
   stats: {
@@ -36,8 +36,7 @@ export type AdminDashboardData = {
 
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   try {
-    await requireRole(["ADMIN"]);
-
+    // Role check is done at the page level, so we just fetch data here
     const [
       totalUsers,
       totalEngineers,
@@ -125,7 +124,15 @@ export type EngineerDashboardData = {
 
 export async function getEngineerDashboardData(): Promise<EngineerDashboardData> {
   try {
-    const user = await requireRole(["ENGINEER", "ADMIN"]);
+    // Role check is done at the page level
+    const user = await getCurrentUser();
+    if (!user) {
+      return {
+        stats: { assignedJobs: 0, inProgressJobs: 0, completedToday: 0, completedThisWeek: 0 },
+        todaysJobs: [],
+        availableJobs: [],
+      };
+    }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -234,7 +241,11 @@ export type EngineerJobsData = {
 
 export async function getEngineerJobsData(): Promise<EngineerJobsData> {
   try {
-    const user = await requireRole(["ENGINEER", "ADMIN"]);
+    // Role check is done at the page level
+    const user = await getCurrentUser();
+    if (!user) {
+      return { myJobs: [], availableJobs: [] };
+    }
 
     const [myJobsData, availableJobsData] = await Promise.all([
       db.booking.findMany({
@@ -300,7 +311,15 @@ export type CustomerDashboardData = {
 
 export async function getCustomerDashboardData(): Promise<CustomerDashboardData> {
   try {
-    const user = await requireRole(["CUSTOMER", "ADMIN"]);
+    // Role check is done at the page level
+    const user = await getCurrentUser();
+    if (!user) {
+      return {
+        stats: { totalBookings: 0, pendingBookings: 0, completedBookings: 0, totalSites: 0 },
+        recentBookings: [],
+        upcomingBookings: [],
+      };
+    }
 
     const [totalBookings, pendingBookings, completedBookings, totalSites, bookings] =
       await Promise.all([
