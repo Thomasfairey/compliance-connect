@@ -44,19 +44,40 @@ export async function getOrCreateUser(): Promise<User> {
     throw new Error("Unauthorized");
   }
 
+  // First try to find by clerkId
   let user = await db.user.findUnique({
     where: { clerkId: userId },
   });
 
   if (!user) {
-    user = await db.user.create({
-      data: {
-        clerkId: userId,
-        email: clerkUser.emailAddresses[0]?.emailAddress || "",
-        name: `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || "User",
-        avatarUrl: clerkUser.imageUrl,
-      },
+    const email = clerkUser.emailAddresses[0]?.emailAddress || "";
+
+    // Check if a user with this email already exists (e.g., from seed data)
+    const existingUserByEmail = await db.user.findUnique({
+      where: { email },
     });
+
+    if (existingUserByEmail) {
+      // Link the existing user to this Clerk account
+      user = await db.user.update({
+        where: { id: existingUserByEmail.id },
+        data: {
+          clerkId: userId,
+          name: `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || existingUserByEmail.name,
+          avatarUrl: clerkUser.imageUrl || existingUserByEmail.avatarUrl,
+        },
+      });
+    } else {
+      // Create a new user
+      user = await db.user.create({
+        data: {
+          clerkId: userId,
+          email,
+          name: `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || "User",
+          avatarUrl: clerkUser.imageUrl,
+        },
+      });
+    }
   }
 
   return user;
