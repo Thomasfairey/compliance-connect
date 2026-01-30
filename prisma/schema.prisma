@@ -46,6 +46,17 @@ model User {
   // Engineer-specific fields
   engineerProfile EngineerProfile?
 
+  // Bundle purchases
+  bundles       BookingBundle[] @relation("CustomerBundles")
+
+  // Compliance tracking
+  reminders     ComplianceReminder[] @relation("CustomerReminders")
+  upsells       UpsellSuggestion[]   @relation("CustomerUpsells")
+
+  // Push notifications
+  pushSubscriptions PushSubscription[]
+  notifications     Notification[]
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -199,6 +210,10 @@ model Site {
 
   accessNotes String?
   bookings    Booking[]
+
+  // Site profile for intelligent recommendations
+  profile     SiteProfile?
+
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -221,8 +236,12 @@ model Service {
   baseMinutes     Int       @default(30)     // Base time for the job
   minutesPerUnit  Float     @default(2)      // Minutes per unit (item, circuit, etc.)
 
+  // Compliance interval in months (for auto-rebook feature)
+  complianceIntervalMonths Int? // e.g., 12 for annual PAT testing
+
   bookings        Booking[]
   competencies    EngineerCompetency[]
+  bundleItems     BundleItem[]
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -295,4 +314,289 @@ model Asset {
   testedAt    DateTime @default(now())
 
   @@index([bookingId])
+}
+
+// =====================
+// FEATURE 1: SERVICE BUNDLES
+// =====================
+
+model ServiceBundle {
+  id              String       @id @default(cuid())
+  name            String       // e.g., "Annual Compliance Package"
+  slug            String       @unique
+  description     String
+  discountPercent Float        @default(0) // Bundle discount (e.g., 15)
+  isActive        Boolean      @default(true)
+  icon            String?      // Lucide icon name
+  sortOrder       Int          @default(0)
+
+  // Which industries/building types this bundle is recommended for
+  recommendedFor  String[]     @default([])
+
+  items           BundleItem[]
+  bookings        BookingBundle[]
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model BundleItem {
+  id              String        @id @default(cuid())
+  bundleId        String
+  bundle          ServiceBundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+
+  serviceId       String
+  service         Service       @relation(fields: [serviceId], references: [id])
+
+  // Override default quantity/pricing for this bundle
+  includedQty     Int?          // null = based on site profile
+  isRequired      Boolean       @default(true)
+
+  @@unique([bundleId, serviceId])
+  @@index([bundleId])
+}
+
+model BookingBundle {
+  id              String        @id @default(cuid())
+  bundleId        String
+  bundle          ServiceBundle @relation(fields: [bundleId], references: [id])
+
+  // Link to the individual bookings created from this bundle
+  bookingIds      String[]
+
+  customerId      String
+  customer        User          @relation("CustomerBundles", fields: [customerId], references: [id], onDelete: Cascade)
+
+  siteId          String
+
+  totalOriginalPrice  Float
+  totalDiscountedPrice Float
+  discountPercent     Float
+
+  purchasedAt     DateTime      @default(now())
+
+  @@index([customerId])
+  @@index([bundleId])
+}
+
+// =====================
+// FEATURE 2: SITE PROFILES & QUESTIONNAIRE
+// =====================
+
+enum BuildingType {
+  OFFICE
+  RETAIL
+  WAREHOUSE
+  RESTAURANT
+  HOTEL
+  HEALTHCARE
+  EDUCATION
+  MANUFACTURING
+  RESIDENTIAL
+  MIXED_USE
+  OTHER
+}
+
+enum IndustryType {
+  TECHNOLOGY
+  FINANCE
+  HEALTHCARE
+  HOSPITALITY
+  RETAIL
+  MANUFACTURING
+  EDUCATION
+  GOVERNMENT
+  PROFESSIONAL_SERVICES
+  OTHER
+}
+
+model SiteProfile {
+  id              String        @id @default(cuid())
+  siteId          String        @unique
+  site            Site          @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  // Building Information
+  buildingType    BuildingType  @default(OTHER)
+  industryType    IndustryType  @default(OTHER)
+
+  // Size metrics
+  floorArea       Int?          // Square meters
+  numberOfFloors  Int?
+  numberOfRooms   Int?
+
+  // Compliance-relevant details
+  hasCommercialKitchen  Boolean @default(false)
+  hasServerRoom         Boolean @default(false)
+  hasWorkshop           Boolean @default(false)
+  hasPublicAccess       Boolean @default(false)
+  yearBuilt             Int?
+  lastRefurbishment     Int?
+
+  // Estimated quantities (used for auto-quoting)
+  estimatedPATItems         Int?
+  estimatedFireZones        Int?
+  estimatedEmergencyLights  Int?
+  estimatedCircuits         Int?
+  estimatedExtinguishers    Int?
+  estimatedCCTVCameras      Int?
+
+  // Staff/occupancy
+  typicalOccupancy      Int?
+  numberOfWorkstations  Int?
+
+  // Gov.uk EPC data (future integration)
+  epcRating             String?
+  epcCertificateNumber  String?
+
+  // Questionnaire completion tracking
+  questionnaireComplete Boolean   @default(false)
+  completedAt           DateTime?
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+// =====================
+// FEATURE 3: ALLOCATION & ROUTE OPTIMIZATION
+// =====================
+
+model AllocationLog {
+  id              String    @id @default(cuid())
+  bookingId       String
+
+  // What happened
+  action          String    // "AUTO_ASSIGNED", "REALLOCATED", "MANUAL_OVERRIDE"
+
+  // Who was involved
+  fromEngineerId  String?
+  toEngineerId    String?
+
+  // Why it happened
+  reason          String?   // e.g., "Closest available", "Skill match", "Route optimization"
+  score           Float?    // Allocation score for debugging
+
+  // Additional context
+  metadata        Json?     // Travel time, distance, etc.
+
+  createdAt       DateTime  @default(now())
+
+  @@index([bookingId])
+  @@index([toEngineerId])
+}
+
+// =====================
+// FEATURE 4: AUTO-REBOOK & COMPLIANCE TRACKING
+// =====================
+
+model ComplianceReminder {
+  id              String    @id @default(cuid())
+
+  customerId      String
+  customer        User      @relation("CustomerReminders", fields: [customerId], references: [id], onDelete: Cascade)
+
+  siteId          String
+  serviceId       String
+
+  // Last test details
+  lastBookingId   String?
+  lastTestDate    DateTime?
+
+  // Next due date (calculated from compliance interval)
+  nextDueDate     DateTime
+
+  // Notification status
+  reminderSent30Days  Boolean   @default(false)
+  reminderSent7Days   Boolean   @default(false)
+  reminderSentOverdue Boolean   @default(false)
+
+  // Auto-rebook preference
+  autoRebookEnabled   Boolean   @default(false)
+  preferredSlot       String?   // "AM", "PM", or specific time
+  preferredDayOfWeek  Int?      // 0-6
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@unique([siteId, serviceId])
+  @@index([customerId])
+  @@index([nextDueDate])
+}
+
+model UpsellSuggestion {
+  id              String    @id @default(cuid())
+
+  customerId      String
+  customer        User      @relation("CustomerUpsells", fields: [customerId], references: [id], onDelete: Cascade)
+
+  siteId          String
+  serviceId       String    // The suggested service
+
+  // Why we're suggesting this
+  reason          String    // e.g., "Based on your site profile", "Required by law for your industry"
+  priority        Int       @default(0) // Higher = more important
+
+  // Status
+  status          String    @default("PENDING") // "PENDING", "ACCEPTED", "DISMISSED"
+  dismissedAt     DateTime?
+  acceptedAt      DateTime?
+
+  // Link to resulting booking if accepted
+  bookingId       String?
+
+  createdAt       DateTime  @default(now())
+
+  @@index([customerId])
+  @@index([status])
+}
+
+// =====================
+// FEATURE 5: ENHANCED ENGINEER APP
+// =====================
+
+model PushSubscription {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Web Push subscription details
+  endpoint        String
+  p256dh          String    // Public key
+  auth            String    // Auth secret
+
+  // Device info
+  deviceName      String?
+  userAgent       String?
+
+  isActive        Boolean   @default(true)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Notification {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type            String    // "NEW_JOB", "SCHEDULE_CHANGE", "REMINDER", etc.
+  title           String
+  body            String
+
+  // Link to related entity
+  bookingId       String?
+
+  // Delivery status
+  sentAt          DateTime?
+  readAt          DateTime?
+
+  // For action buttons
+  actionUrl       String?
+  actionLabel     String?
+
+  createdAt       DateTime  @default(now())
+
+  @@index([userId])
+  @@index([readAt])
 }

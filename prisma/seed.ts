@@ -31,7 +31,7 @@ async function main() {
   const services = await Promise.all([
     prisma.service.upsert({
       where: { slug: "pat-testing" },
-      update: {},
+      update: { complianceIntervalMonths: 12 },
       create: {
         name: "PAT Testing",
         slug: "pat-testing",
@@ -42,11 +42,12 @@ async function main() {
         icon: "Zap",
         baseMinutes: 30,
         minutesPerUnit: 2,
+        complianceIntervalMonths: 12,
       },
     }),
     prisma.service.upsert({
       where: { slug: "fire-alarm-testing" },
-      update: {},
+      update: { complianceIntervalMonths: 12 },
       create: {
         name: "Fire Alarm Testing",
         slug: "fire-alarm-testing",
@@ -57,11 +58,12 @@ async function main() {
         icon: "Shield",
         baseMinutes: 45,
         minutesPerUnit: 15,
+        complianceIntervalMonths: 12,
       },
     }),
     prisma.service.upsert({
       where: { slug: "emergency-lighting" },
-      update: {},
+      update: { complianceIntervalMonths: 12 },
       create: {
         name: "Emergency Lighting",
         slug: "emergency-lighting",
@@ -72,11 +74,12 @@ async function main() {
         icon: "FileCheck",
         baseMinutes: 30,
         minutesPerUnit: 5,
+        complianceIntervalMonths: 12,
       },
     }),
     prisma.service.upsert({
       where: { slug: "fixed-wire-testing" },
-      update: {},
+      update: { complianceIntervalMonths: 60 },
       create: {
         name: "Fixed Wire Testing",
         slug: "fixed-wire-testing",
@@ -87,6 +90,7 @@ async function main() {
         icon: "Building2",
         baseMinutes: 60,
         minutesPerUnit: 10,
+        complianceIntervalMonths: 60, // 5 years for commercial
       },
     }),
     prisma.service.upsert({
@@ -137,7 +141,7 @@ async function main() {
     // Fire Safety Services
     prisma.service.upsert({
       where: { slug: "fire-extinguisher-servicing" },
-      update: {},
+      update: { complianceIntervalMonths: 12 },
       create: {
         name: "Fire Extinguisher Servicing",
         slug: "fire-extinguisher-servicing",
@@ -148,11 +152,12 @@ async function main() {
         icon: "Flame",
         baseMinutes: 15,
         minutesPerUnit: 5,
+        complianceIntervalMonths: 12,
       },
     }),
     prisma.service.upsert({
       where: { slug: "fire-risk-assessment" },
-      update: {},
+      update: { complianceIntervalMonths: 12 },
       create: {
         name: "Fire Risk Assessment",
         slug: "fire-risk-assessment",
@@ -163,6 +168,7 @@ async function main() {
         icon: "ClipboardCheck",
         baseMinutes: 120,
         minutesPerUnit: 60,
+        complianceIntervalMonths: 12, // Should be reviewed annually
       },
     }),
     // Health & Safety Assessments
@@ -292,6 +298,171 @@ async function main() {
   console.log(`Created ${services.length} services`);
 
   // =====================
+  // CREATE SERVICE BUNDLES
+  // =====================
+
+  const bundles = await Promise.all([
+    prisma.serviceBundle.upsert({
+      where: { slug: "annual-compliance-package" },
+      update: {},
+      create: {
+        name: "Annual Compliance Package",
+        slug: "annual-compliance-package",
+        description: "Complete annual compliance testing bundle including PAT testing, fire alarm testing, and emergency lighting. Perfect for offices and retail spaces.",
+        discountPercent: 15,
+        icon: "Package",
+        sortOrder: 1,
+        recommendedFor: ["OFFICE", "RETAIL"],
+      },
+    }),
+    prisma.serviceBundle.upsert({
+      where: { slug: "fire-safety-bundle" },
+      update: {},
+      create: {
+        name: "Fire Safety Bundle",
+        slug: "fire-safety-bundle",
+        description: "Comprehensive fire safety package including fire alarm testing, emergency lighting, fire extinguisher servicing, and fire risk assessment.",
+        discountPercent: 20,
+        icon: "Flame",
+        sortOrder: 2,
+        recommendedFor: ["OFFICE", "RETAIL", "WAREHOUSE", "HOTEL", "RESTAURANT"],
+      },
+    }),
+    prisma.serviceBundle.upsert({
+      where: { slug: "electrical-safety-bundle" },
+      update: {},
+      create: {
+        name: "Electrical Safety Bundle",
+        slug: "electrical-safety-bundle",
+        description: "Full electrical compliance package: PAT testing, fixed wire testing (EICR), and thermographic survey.",
+        discountPercent: 18,
+        icon: "Zap",
+        sortOrder: 3,
+        recommendedFor: ["OFFICE", "WAREHOUSE", "MANUFACTURING"],
+      },
+    }),
+    prisma.serviceBundle.upsert({
+      where: { slug: "restaurant-compliance" },
+      update: {},
+      create: {
+        name: "Restaurant Compliance Package",
+        slug: "restaurant-compliance",
+        description: "Essential compliance package for food service establishments including PAT testing, fire safety, and health & safety assessments.",
+        discountPercent: 22,
+        icon: "ChefHat",
+        sortOrder: 4,
+        recommendedFor: ["RESTAURANT", "HOTEL"],
+      },
+    }),
+    prisma.serviceBundle.upsert({
+      where: { slug: "new-premises-setup" },
+      update: {},
+      create: {
+        name: "New Premises Setup",
+        slug: "new-premises-setup",
+        description: "Everything you need when moving into new premises: EICR, fire risk assessment, emergency lighting, and PAT testing.",
+        discountPercent: 25,
+        icon: "Building",
+        sortOrder: 5,
+        recommendedFor: ["OFFICE", "RETAIL", "WAREHOUSE"],
+      },
+    }),
+    prisma.serviceBundle.upsert({
+      where: { slug: "tech-office-bundle" },
+      update: {},
+      create: {
+        name: "Tech Office Bundle",
+        slug: "tech-office-bundle",
+        description: "Designed for tech companies: PAT testing, DSE assessments, and thermographic survey for server equipment.",
+        discountPercent: 15,
+        icon: "Laptop",
+        sortOrder: 6,
+        recommendedFor: ["OFFICE"],
+      },
+    }),
+    prisma.serviceBundle.upsert({
+      where: { slug: "training-package" },
+      update: {},
+      create: {
+        name: "Staff Training Package",
+        slug: "training-package",
+        description: "Comprehensive staff training: fire warden, first aid, fire awareness, and manual handling.",
+        discountPercent: 20,
+        icon: "GraduationCap",
+        sortOrder: 7,
+        recommendedFor: ["OFFICE", "RETAIL", "WAREHOUSE", "MANUFACTURING"],
+      },
+    }),
+  ]);
+
+  console.log(`Created ${bundles.length} service bundles`);
+
+  // Map services by slug for easy lookup
+  const serviceMap = new Map(services.map(s => [s.slug, s]));
+
+  // Add bundle items
+  const bundleItemsData = [
+    // Annual Compliance Package
+    { bundleSlug: "annual-compliance-package", serviceSlug: "pat-testing", isRequired: true },
+    { bundleSlug: "annual-compliance-package", serviceSlug: "fire-alarm-testing", isRequired: true },
+    { bundleSlug: "annual-compliance-package", serviceSlug: "emergency-lighting", isRequired: true },
+
+    // Fire Safety Bundle
+    { bundleSlug: "fire-safety-bundle", serviceSlug: "fire-alarm-testing", isRequired: true },
+    { bundleSlug: "fire-safety-bundle", serviceSlug: "emergency-lighting", isRequired: true },
+    { bundleSlug: "fire-safety-bundle", serviceSlug: "fire-extinguisher-servicing", isRequired: true },
+    { bundleSlug: "fire-safety-bundle", serviceSlug: "fire-risk-assessment", isRequired: true },
+
+    // Electrical Safety Bundle
+    { bundleSlug: "electrical-safety-bundle", serviceSlug: "pat-testing", isRequired: true },
+    { bundleSlug: "electrical-safety-bundle", serviceSlug: "fixed-wire-testing", isRequired: true },
+    { bundleSlug: "electrical-safety-bundle", serviceSlug: "thermographic-survey", isRequired: false },
+
+    // Restaurant Compliance
+    { bundleSlug: "restaurant-compliance", serviceSlug: "pat-testing", isRequired: true },
+    { bundleSlug: "restaurant-compliance", serviceSlug: "fire-alarm-testing", isRequired: true },
+    { bundleSlug: "restaurant-compliance", serviceSlug: "fire-extinguisher-servicing", isRequired: true },
+    { bundleSlug: "restaurant-compliance", serviceSlug: "health-safety-risk-assessment", isRequired: true },
+
+    // New Premises Setup
+    { bundleSlug: "new-premises-setup", serviceSlug: "fixed-wire-testing", isRequired: true },
+    { bundleSlug: "new-premises-setup", serviceSlug: "fire-risk-assessment", isRequired: true },
+    { bundleSlug: "new-premises-setup", serviceSlug: "emergency-lighting", isRequired: true },
+    { bundleSlug: "new-premises-setup", serviceSlug: "pat-testing", isRequired: true },
+
+    // Tech Office Bundle
+    { bundleSlug: "tech-office-bundle", serviceSlug: "pat-testing", isRequired: true },
+    { bundleSlug: "tech-office-bundle", serviceSlug: "dse-assessment", isRequired: true },
+    { bundleSlug: "tech-office-bundle", serviceSlug: "thermographic-survey", isRequired: false },
+
+    // Training Package
+    { bundleSlug: "training-package", serviceSlug: "fire-warden-training", isRequired: true },
+    { bundleSlug: "training-package", serviceSlug: "first-aid-training", isRequired: true },
+    { bundleSlug: "training-package", serviceSlug: "fire-awareness-training", isRequired: true },
+    { bundleSlug: "training-package", serviceSlug: "manual-handling-training", isRequired: false },
+  ];
+
+  const bundleMap = new Map(bundles.map(b => [b.slug, b]));
+
+  for (const item of bundleItemsData) {
+    const bundle = bundleMap.get(item.bundleSlug);
+    const service = serviceMap.get(item.serviceSlug);
+    if (bundle && service) {
+      await prisma.bundleItem.upsert({
+        where: { bundleId_serviceId: { bundleId: bundle.id, serviceId: service.id } },
+        update: {},
+        create: {
+          bundleId: bundle.id,
+          serviceId: service.id,
+          isRequired: item.isRequired,
+        },
+      });
+    }
+  }
+
+  console.log("Added bundle items");
+
+  // =====================
   // CLEANUP OLD SEED DATA
   // =====================
 
@@ -320,6 +491,20 @@ async function main() {
   await prisma.engineerQualification.deleteMany({});
   await prisma.engineerCompetency.deleteMany({});
   await prisma.engineerProfile.deleteMany({});
+  // Delete bundle-related data
+  await prisma.bookingBundle.deleteMany({});
+  await prisma.bundleItem.deleteMany({});
+  await prisma.serviceBundle.deleteMany({});
+  // Delete compliance tracking data
+  await prisma.complianceReminder.deleteMany({});
+  await prisma.upsellSuggestion.deleteMany({});
+  // Delete notification data
+  await prisma.notification.deleteMany({});
+  await prisma.pushSubscription.deleteMany({});
+  // Delete allocation logs
+  await prisma.allocationLog.deleteMany({});
+  // Delete site profiles
+  await prisma.siteProfile.deleteMany({});
   await prisma.site.deleteMany({});
   await prisma.user.deleteMany({
     where: {
@@ -635,6 +820,186 @@ async function main() {
   ]);
 
   console.log("Created 3 customers with 7 sites total");
+
+  // =====================
+  // CREATE SITE PROFILES
+  // =====================
+
+  await Promise.all([
+    // ACME HQ - Large office
+    prisma.siteProfile.upsert({
+      where: { siteId: "acme_hq" },
+      update: {},
+      create: {
+        siteId: "acme_hq",
+        buildingType: "OFFICE",
+        industryType: "PROFESSIONAL_SERVICES",
+        floorArea: 2500,
+        numberOfFloors: 3,
+        numberOfRooms: 45,
+        hasServerRoom: true,
+        hasPublicAccess: true,
+        yearBuilt: 1985,
+        lastRefurbishment: 2019,
+        estimatedPATItems: 180,
+        estimatedFireZones: 8,
+        estimatedEmergencyLights: 35,
+        estimatedCircuits: 24,
+        estimatedExtinguishers: 12,
+        typicalOccupancy: 120,
+        numberOfWorkstations: 100,
+        questionnaireComplete: true,
+        completedAt: new Date(),
+      },
+    }),
+    // ACME Warehouse
+    prisma.siteProfile.upsert({
+      where: { siteId: "acme_warehouse" },
+      update: {},
+      create: {
+        siteId: "acme_warehouse",
+        buildingType: "WAREHOUSE",
+        industryType: "PROFESSIONAL_SERVICES",
+        floorArea: 5000,
+        numberOfFloors: 1,
+        numberOfRooms: 8,
+        hasWorkshop: true,
+        yearBuilt: 1995,
+        estimatedPATItems: 45,
+        estimatedFireZones: 4,
+        estimatedEmergencyLights: 20,
+        estimatedCircuits: 16,
+        estimatedExtinguishers: 8,
+        typicalOccupancy: 25,
+        questionnaireComplete: true,
+        completedAt: new Date(),
+      },
+    }),
+    // ACME Retail Store
+    prisma.siteProfile.upsert({
+      where: { siteId: "acme_retail" },
+      update: {},
+      create: {
+        siteId: "acme_retail",
+        buildingType: "RETAIL",
+        industryType: "RETAIL",
+        floorArea: 400,
+        numberOfFloors: 2,
+        numberOfRooms: 6,
+        hasPublicAccess: true,
+        yearBuilt: 1960,
+        lastRefurbishment: 2015,
+        estimatedPATItems: 35,
+        estimatedFireZones: 3,
+        estimatedEmergencyLights: 12,
+        estimatedCircuits: 8,
+        estimatedExtinguishers: 4,
+        typicalOccupancy: 50,
+        numberOfWorkstations: 4,
+        questionnaireComplete: true,
+        completedAt: new Date(),
+      },
+    }),
+    // Tech Hub Office
+    prisma.siteProfile.upsert({
+      where: { siteId: "tech_hub" },
+      update: {},
+      create: {
+        siteId: "tech_hub",
+        buildingType: "OFFICE",
+        industryType: "TECHNOLOGY",
+        floorArea: 800,
+        numberOfFloors: 1,
+        numberOfRooms: 12,
+        hasServerRoom: true,
+        yearBuilt: 2010,
+        estimatedPATItems: 120,
+        estimatedFireZones: 4,
+        estimatedEmergencyLights: 18,
+        estimatedCircuits: 12,
+        estimatedExtinguishers: 6,
+        typicalOccupancy: 45,
+        numberOfWorkstations: 40,
+        questionnaireComplete: true,
+        completedAt: new Date(),
+      },
+    }),
+    // Tech Data Center
+    prisma.siteProfile.upsert({
+      where: { siteId: "tech_datacenter" },
+      update: {},
+      create: {
+        siteId: "tech_datacenter",
+        buildingType: "WAREHOUSE",
+        industryType: "TECHNOLOGY",
+        floorArea: 1200,
+        numberOfFloors: 1,
+        numberOfRooms: 5,
+        hasServerRoom: true,
+        yearBuilt: 2018,
+        estimatedPATItems: 25,
+        estimatedFireZones: 6,
+        estimatedEmergencyLights: 24,
+        estimatedCircuits: 48,
+        estimatedExtinguishers: 8,
+        typicalOccupancy: 10,
+        questionnaireComplete: true,
+        completedAt: new Date(),
+      },
+    }),
+    // Camden Store
+    prisma.siteProfile.upsert({
+      where: { siteId: "nlr_store1" },
+      update: {},
+      create: {
+        siteId: "nlr_store1",
+        buildingType: "RETAIL",
+        industryType: "RETAIL",
+        floorArea: 350,
+        numberOfFloors: 2,
+        numberOfRooms: 4,
+        hasPublicAccess: true,
+        yearBuilt: 1920,
+        lastRefurbishment: 2020,
+        estimatedPATItems: 30,
+        estimatedFireZones: 2,
+        estimatedEmergencyLights: 10,
+        estimatedCircuits: 6,
+        estimatedExtinguishers: 3,
+        typicalOccupancy: 40,
+        numberOfWorkstations: 2,
+        questionnaireComplete: true,
+        completedAt: new Date(),
+      },
+    }),
+    // Islington Store
+    prisma.siteProfile.upsert({
+      where: { siteId: "nlr_store2" },
+      update: {},
+      create: {
+        siteId: "nlr_store2",
+        buildingType: "RETAIL",
+        industryType: "RETAIL",
+        floorArea: 500,
+        numberOfFloors: 3,
+        numberOfRooms: 8,
+        hasPublicAccess: true,
+        yearBuilt: 1890,
+        lastRefurbishment: 2018,
+        estimatedPATItems: 45,
+        estimatedFireZones: 4,
+        estimatedEmergencyLights: 16,
+        estimatedCircuits: 10,
+        estimatedExtinguishers: 5,
+        typicalOccupancy: 60,
+        numberOfWorkstations: 3,
+        questionnaireComplete: true,
+        completedAt: new Date(),
+      },
+    }),
+  ]);
+
+  console.log("Created site profiles for all sites");
 
   // =====================
   // CREATE BOOKINGS ACROSS 2 MONTHS

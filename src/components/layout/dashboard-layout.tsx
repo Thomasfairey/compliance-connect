@@ -13,7 +13,10 @@ import {
   Users,
   Settings,
   ClipboardList,
+  Package,
+  CheckCircle2,
 } from "lucide-react";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -28,6 +31,8 @@ interface DashboardLayoutProps {
 const customerNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/bookings", label: "Bookings", icon: Calendar },
+  { href: "/bookings/bundles", label: "Bundles", icon: Package },
+  { href: "/compliance", label: "Compliance", icon: CheckCircle2 },
   { href: "/sites", label: "Sites", icon: Building2 },
 ];
 
@@ -143,7 +148,8 @@ export function DashboardLayout({
             <span className="font-semibold">OfficeTest On Demand</span>
           </Link>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {userRole === "ENGINEER" && <NotificationBell />}
             <UserButton
               afterSignOutUrl="/"
               appearance={{
