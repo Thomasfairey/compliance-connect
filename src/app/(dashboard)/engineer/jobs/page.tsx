@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getOrCreateUser } from "@/lib/auth";
-import { getEngineerJobs, getAvailableJobs } from "@/lib/actions";
+import { db } from "@/lib/db";
 import { PageHeader, StatusBadge, EmptyState } from "@/components/shared";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate, getSlotTime } from "@/lib/utils";
 import { ClipboardList, Calendar, Clock, MapPin, ArrowRight } from "lucide-react";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "My Jobs",
@@ -19,10 +21,46 @@ export default async function EngineerJobsPage() {
     redirect("/dashboard");
   }
 
-  const [myJobs, availableJobs] = await Promise.all([
-    getEngineerJobs(),
-    getAvailableJobs(),
-  ]);
+  // Default values
+  let myJobs: {
+    id: string;
+    status: string;
+    scheduledDate: Date;
+    slot: string;
+    estimatedQty: number;
+    service: { name: string; unitName: string };
+    site: { name: string; address: string; postcode: string };
+  }[] = [];
+  let availableJobs: typeof myJobs = [];
+
+  try {
+    const [myJobsData, availableJobsData] = await Promise.all([
+      db.booking.findMany({
+        where: { engineerId: user.id },
+        include: {
+          service: true,
+          site: true,
+        },
+        orderBy: { scheduledDate: "asc" },
+      }),
+      db.booking.findMany({
+        where: {
+          status: { in: ["PENDING", "CONFIRMED"] },
+          engineerId: null,
+        },
+        include: {
+          service: true,
+          site: true,
+        },
+        orderBy: { scheduledDate: "asc" },
+      }),
+    ]);
+
+    myJobs = myJobsData;
+    availableJobs = availableJobsData;
+  } catch (error) {
+    console.error("Error fetching engineer jobs:", error);
+  }
 
   const activeJobs = myJobs.filter(
     (j) => j.status === "CONFIRMED" || j.status === "IN_PROGRESS"

@@ -6,7 +6,6 @@ import { PageHeader, StatCard, StatusBadge } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatDate, getSlotTime } from "@/lib/utils";
-import { JobsCalendar } from "@/components/engineer/jobs-calendar";
 import {
   Wrench,
   Clock,
@@ -29,80 +28,96 @@ export default async function EngineerDashboardPage() {
     redirect("/dashboard");
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const weekStart = new Date(today);
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-
-  // Fetch stats directly to avoid auth race conditions
-  const [assignedJobs, inProgressJobs, completedToday, completedThisWeek, myJobs, availableJobs] =
-    await Promise.all([
-      db.booking.count({
-        where: {
-          engineerId: user.id,
-          status: { in: ["CONFIRMED", "IN_PROGRESS"] },
-        },
-      }),
-      db.booking.count({
-        where: { engineerId: user.id, status: "IN_PROGRESS" },
-      }),
-      db.booking.count({
-        where: {
-          engineerId: user.id,
-          status: "COMPLETED",
-          completedAt: { gte: today },
-        },
-      }),
-      db.booking.count({
-        where: {
-          engineerId: user.id,
-          status: "COMPLETED",
-          completedAt: { gte: weekStart },
-        },
-      }),
-      db.booking.findMany({
-        where: { engineerId: user.id },
-        include: {
-          customer: true,
-          site: true,
-          service: true,
-          engineer: true,
-          assets: true,
-        },
-        orderBy: { scheduledDate: "asc" },
-      }),
-      db.booking.findMany({
-        where: {
-          status: { in: ["PENDING", "CONFIRMED"] },
-          engineerId: null,
-        },
-        include: {
-          customer: true,
-          site: true,
-          service: true,
-          engineer: true,
-          assets: true,
-        },
-        orderBy: { scheduledDate: "asc" },
-        take: 10,
-      }),
-    ]);
-
-  const stats = {
-    assignedJobs,
-    inProgressJobs,
-    completedToday,
-    completedThisWeek,
+  // Default values
+  let stats = {
+    assignedJobs: 0,
+    inProgressJobs: 0,
+    completedToday: 0,
+    completedThisWeek: 0,
   };
+  let todaysJobs: {
+    id: string;
+    status: string;
+    scheduledDate: Date;
+    slot: string;
+    service: { name: string };
+    site: { name: string; postcode: string };
+  }[] = [];
+  let availableJobs: typeof todaysJobs = [];
 
-  const todaysJobs = myJobs.filter((job) => {
-    const jobDate = new Date(job.scheduledDate);
-    return (
-      jobDate.toDateString() === today.toDateString() &&
-      (job.status === "CONFIRMED" || job.status === "IN_PROGRESS")
-    );
-  });
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const weekStart = new Date(today);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+
+    // Fetch data directly
+    const [assignedJobs, inProgressJobs, completedToday, completedThisWeek, todaysJobsData, availableJobsData] =
+      await Promise.all([
+        db.booking.count({
+          where: {
+            engineerId: user.id,
+            status: { in: ["CONFIRMED", "IN_PROGRESS"] },
+          },
+        }),
+        db.booking.count({
+          where: { engineerId: user.id, status: "IN_PROGRESS" },
+        }),
+        db.booking.count({
+          where: {
+            engineerId: user.id,
+            status: "COMPLETED",
+            completedAt: { gte: today },
+          },
+        }),
+        db.booking.count({
+          where: {
+            engineerId: user.id,
+            status: "COMPLETED",
+            completedAt: { gte: weekStart },
+          },
+        }),
+        db.booking.findMany({
+          where: {
+            engineerId: user.id,
+            scheduledDate: { gte: today, lt: tomorrow },
+            status: { in: ["CONFIRMED", "IN_PROGRESS"] },
+          },
+          include: {
+            service: true,
+            site: true,
+          },
+          orderBy: { scheduledDate: "asc" },
+        }),
+        db.booking.findMany({
+          where: {
+            status: { in: ["PENDING", "CONFIRMED"] },
+            engineerId: null,
+          },
+          include: {
+            service: true,
+            site: true,
+          },
+          orderBy: { scheduledDate: "asc" },
+          take: 5,
+        }),
+      ]);
+
+    stats = {
+      assignedJobs,
+      inProgressJobs,
+      completedToday,
+      completedThisWeek,
+    };
+
+    todaysJobs = todaysJobsData;
+    availableJobs = availableJobsData;
+  } catch (error) {
+    console.error("Error fetching engineer dashboard data:", error);
+  }
 
   return (
     <div>
@@ -205,7 +220,7 @@ export default async function EngineerDashboardPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {availableJobs.slice(0, 5).map((job) => (
+                {availableJobs.map((job) => (
                   <Link
                     key={job.id}
                     href={`/engineer/jobs/${job.id}`}
@@ -242,15 +257,48 @@ export default async function EngineerDashboardPage() {
         </Card>
       </div>
 
-      {/* Jobs Calendar */}
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle className="text-lg">My Schedule</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <JobsCalendar jobs={myJobs} />
-        </CardContent>
-      </Card>
+      {/* Quick Links */}
+      <div className="mt-8 grid sm:grid-cols-3 gap-4">
+        <Link href="/engineer/jobs">
+          <Card className="hover:shadow-md hover:border-gray-200 transition-all cursor-pointer">
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
+                <Wrench className="h-6 w-6 text-gray-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">My Jobs</h3>
+                <p className="text-sm text-gray-500">View all assigned jobs</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/engineer/profile">
+          <Card className="hover:shadow-md hover:border-gray-200 transition-all cursor-pointer">
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
+                <CheckCircle2 className="h-6 w-6 text-gray-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">My Profile</h3>
+                <p className="text-sm text-gray-500">Update your details</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/engineer/jobs">
+          <Card className="hover:shadow-md hover:border-gray-200 transition-all cursor-pointer">
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
+                <Calendar className="h-6 w-6 text-gray-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">Schedule</h3>
+                <p className="text-sm text-gray-500">View your calendar</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
     </div>
   );
 }

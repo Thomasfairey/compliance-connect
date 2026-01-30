@@ -29,50 +29,74 @@ export default async function AdminDashboardPage() {
     redirect("/dashboard");
   }
 
-  // Fetch stats directly in the page component to avoid auth race conditions
-  const [
-    totalUsers,
-    totalEngineers,
-    totalBookings,
-    pendingBookings,
-    completedBookings,
-    revenueAgg,
-    bookings,
-  ] = await Promise.all([
-    db.user.count(),
-    db.user.count({ where: { role: "ENGINEER" } }),
-    db.booking.count(),
-    db.booking.count({ where: { status: { in: ["PENDING", "CONFIRMED"] } } }),
-    db.booking.count({ where: { status: "COMPLETED" } }),
-    db.booking.aggregate({
-      where: { status: "COMPLETED" },
-      _sum: { quotedPrice: true },
-    }),
-    db.booking.findMany({
-      include: {
-        customer: true,
-        site: true,
-        service: true,
-        engineer: true,
-      },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-    }),
-  ]);
-
-  const stats = {
-    totalUsers,
-    totalEngineers,
-    totalBookings,
-    pendingBookings,
-    completedBookings,
-    revenue: revenueAgg._sum.quotedPrice || 0,
+  // Default values
+  let stats = {
+    totalUsers: 0,
+    totalEngineers: 0,
+    totalBookings: 0,
+    pendingBookings: 0,
+    completedBookings: 0,
+    revenue: 0,
   };
+  let recentBookings: {
+    id: string;
+    status: string;
+    scheduledDate: Date;
+    quotedPrice: number;
+    engineerId: string | null;
+    service: { name: string };
+    customer: { name: string };
+    site: { name: string };
+  }[] = [];
+  let unassignedBookings: typeof recentBookings = [];
 
-  const recentBookings = bookings.slice(0, 5);
-  const unassignedBookings = bookings.filter(
-    (b) => b.status === "PENDING" && !b.engineerId
-  );
+  try {
+    // Fetch stats directly - wrapped in try-catch for safety
+    const [
+      totalUsers,
+      totalEngineers,
+      totalBookings,
+      pendingBookings,
+      completedBookings,
+      revenueAgg,
+      bookings,
+    ] = await Promise.all([
+      db.user.count(),
+      db.user.count({ where: { role: "ENGINEER" } }),
+      db.booking.count(),
+      db.booking.count({ where: { status: { in: ["PENDING", "CONFIRMED"] } } }),
+      db.booking.count({ where: { status: "COMPLETED" } }),
+      db.booking.aggregate({
+        where: { status: "COMPLETED" },
+        _sum: { quotedPrice: true },
+      }),
+      db.booking.findMany({
+        include: {
+          customer: true,
+          site: true,
+          service: true,
+        },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
+    ]);
+
+    stats = {
+      totalUsers,
+      totalEngineers,
+      totalBookings,
+      pendingBookings,
+      completedBookings,
+      revenue: revenueAgg._sum.quotedPrice || 0,
+    };
+
+    recentBookings = bookings.slice(0, 5);
+    unassignedBookings = bookings.filter(
+      (b) => b.status === "PENDING" && !b.engineerId
+    );
+  } catch (error) {
+    console.error("Error fetching admin dashboard data:", error);
+  }
 
   return (
     <div>
