@@ -7,9 +7,13 @@ const globalForPrisma = globalThis as unknown as {
   pool: Pool | undefined;
 };
 
+// Create pool with proper SSL config for production
 const pool = globalForPrisma.pool ?? new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+  max: 10, // Limit connections in serverless
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 });
 
 const adapter = new PrismaPg(pool);
@@ -24,7 +28,6 @@ export const db =
         : ["error"],
   });
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = db;
-  globalForPrisma.pool = pool;
-}
+// Cache in both development AND production to avoid connection exhaustion
+globalForPrisma.prisma = db;
+globalForPrisma.pool = pool;

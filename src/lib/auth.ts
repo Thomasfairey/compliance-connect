@@ -44,21 +44,26 @@ export async function getOrCreateUser(): Promise<User> {
     throw new Error("Unauthorized");
   }
 
-  // First try to find by clerkId
-  let user = await db.user.findUnique({
-    where: { clerkId: userId },
-  });
+  const email = clerkUser.emailAddresses[0]?.emailAddress || "";
 
-  if (!user) {
-    const email = clerkUser.emailAddresses[0]?.emailAddress || "";
+  try {
+    // First try to find by clerkId
+    let user = await db.user.findUnique({
+      where: { clerkId: userId },
+    });
 
-    // Check if a user with this email already exists (e.g., from seed data)
+    if (user) {
+      return user;
+    }
+
+    // Check if a user with this email already exists (e.g., from seed data or previous Clerk account)
     const existingUserByEmail = await db.user.findUnique({
       where: { email },
     });
 
     if (existingUserByEmail) {
-      // Link the existing user to this Clerk account
+      // If user exists with different clerkId, update it to use the new Clerk account
+      // This handles cases where Clerk was reset or user was migrated
       user = await db.user.update({
         where: { id: existingUserByEmail.id },
         data: {
@@ -67,20 +72,29 @@ export async function getOrCreateUser(): Promise<User> {
           avatarUrl: clerkUser.imageUrl || existingUserByEmail.avatarUrl,
         },
       });
-    } else {
-      // Create a new user
-      user = await db.user.create({
-        data: {
-          clerkId: userId,
-          email,
-          name: `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || "User",
-          avatarUrl: clerkUser.imageUrl,
-        },
-      });
+      return user;
     }
-  }
 
-  return user;
+    // Create a new user
+    user = await db.user.create({
+      data: {
+        clerkId: userId,
+        email,
+        name: `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || "User",
+        avatarUrl: clerkUser.imageUrl,
+      },
+    });
+
+    return user;
+  } catch (error) {
+    // Log the actual error for debugging
+    console.error("getOrCreateUser error:", {
+      clerkUserId: userId,
+      email,
+      error: error instanceof Error ? error.message : error,
+    });
+    throw new Error(`Failed to get or create user: ${error instanceof Error ? error.message : "Unknown error"}`);
+  }
 }
 
 export async function syncUserFromClerk(

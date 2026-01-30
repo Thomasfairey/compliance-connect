@@ -74,7 +74,13 @@ async function getCustomerData(userId: string) {
 }
 
 export default async function DashboardPage() {
-  const user = await getOrCreateUser();
+  let user;
+  try {
+    user = await getOrCreateUser();
+  } catch (error) {
+    console.error("DashboardPage: Failed to get user:", error);
+    throw error;
+  }
 
   // Redirect engineers and admins to their respective dashboards
   if (user.role === "ENGINEER") {
@@ -84,7 +90,15 @@ export default async function DashboardPage() {
     redirect("/admin");
   }
 
-  const { stats, recentBookings, upcomingBookings } = await getCustomerData(user.id);
+  let customerData;
+  try {
+    customerData = await getCustomerData(user.id);
+  } catch (error) {
+    console.error("DashboardPage: Failed to get customer data:", error);
+    throw error;
+  }
+
+  const { stats, recentBookings, upcomingBookings } = customerData;
 
   return (
     <div>
