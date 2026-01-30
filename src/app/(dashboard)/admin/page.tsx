@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getOrCreateUser } from "@/lib/auth";
-import { getAdminDashboardData } from "@/lib/actions";
+import { db } from "@/lib/db";
 import { PageHeader, StatCard, StatusBadge } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,68 @@ export const metadata = {
   title: "Admin Dashboard",
 };
 
+async function getDashboardData() {
+  try {
+    const [
+      totalUsers,
+      totalEngineers,
+      totalBookings,
+      pendingBookings,
+      completedBookings,
+      revenueAgg,
+      bookings,
+    ] = await Promise.all([
+      db.user.count(),
+      db.user.count({ where: { role: "ENGINEER" } }),
+      db.booking.count(),
+      db.booking.count({ where: { status: { in: ["PENDING", "CONFIRMED"] } } }),
+      db.booking.count({ where: { status: "COMPLETED" } }),
+      db.booking.aggregate({
+        where: { status: "COMPLETED" },
+        _sum: { quotedPrice: true },
+      }),
+      db.booking.findMany({
+        include: {
+          customer: true,
+          site: true,
+          service: true,
+        },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
+    ]);
+
+    return {
+      stats: {
+        totalUsers,
+        totalEngineers,
+        totalBookings,
+        pendingBookings,
+        completedBookings,
+        revenue: revenueAgg._sum.quotedPrice || 0,
+      },
+      recentBookings: bookings.slice(0, 5),
+      unassignedBookings: bookings.filter(
+        (b) => b.status === "PENDING" && !b.engineerId
+      ),
+    };
+  } catch (error) {
+    console.error("Error fetching dashboard data:", error);
+    return {
+      stats: {
+        totalUsers: 0,
+        totalEngineers: 0,
+        totalBookings: 0,
+        pendingBookings: 0,
+        completedBookings: 0,
+        revenue: 0,
+      },
+      recentBookings: [],
+      unassignedBookings: [],
+    };
+  }
+}
+
 export default async function AdminDashboardPage() {
   const user = await getOrCreateUser();
 
@@ -29,35 +91,7 @@ export default async function AdminDashboardPage() {
     redirect("/dashboard");
   }
 
-  // Fetch dashboard data with fallback
-  let stats = {
-    totalUsers: 0,
-    totalEngineers: 0,
-    totalBookings: 0,
-    pendingBookings: 0,
-    completedBookings: 0,
-    revenue: 0,
-  };
-  let recentBookings: {
-    id: string;
-    status: string;
-    scheduledDate: Date;
-    quotedPrice: number;
-    engineerId: string | null;
-    service: { name: string };
-    customer: { name: string };
-    site: { name: string };
-  }[] = [];
-  let unassignedBookings: typeof recentBookings = [];
-
-  try {
-    const data = await getAdminDashboardData();
-    stats = data.stats;
-    recentBookings = data.recentBookings;
-    unassignedBookings = data.unassignedBookings;
-  } catch (error) {
-    console.error("Failed to load admin dashboard data:", error);
-  }
+  const { stats, recentBookings, unassignedBookings } = await getDashboardData();
 
   return (
     <div>

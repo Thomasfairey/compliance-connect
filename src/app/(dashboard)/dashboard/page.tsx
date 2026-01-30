@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getOrCreateUser } from "@/lib/auth";
-import { getCustomerDashboardData } from "@/lib/actions";
+import { db } from "@/lib/db";
 import { PageHeader, StatCard, StatusBadge, EmptyState } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +21,49 @@ export const metadata = {
   title: "Dashboard",
 };
 
+async function getCustomerData(userId: string) {
+  try {
+    const [totalBookings, pendingBookings, completedBookings, totalSites, bookings] =
+      await Promise.all([
+        db.booking.count({ where: { customerId: userId } }),
+        db.booking.count({
+          where: { customerId: userId, status: { in: ["PENDING", "CONFIRMED"] } },
+        }),
+        db.booking.count({ where: { customerId: userId, status: "COMPLETED" } }),
+        db.site.count({ where: { userId: userId } }),
+        db.booking.findMany({
+          where: { customerId: userId },
+          include: {
+            site: true,
+            service: true,
+          },
+          orderBy: { createdAt: "desc" },
+          take: 10,
+        }),
+      ]);
+
+    const recentBookings = bookings.slice(0, 5);
+    const upcomingBookings = bookings.filter(
+      (b) =>
+        (b.status === "PENDING" || b.status === "CONFIRMED") &&
+        new Date(b.scheduledDate) >= new Date()
+    );
+
+    return {
+      stats: { totalBookings, pendingBookings, completedBookings, totalSites },
+      recentBookings,
+      upcomingBookings,
+    };
+  } catch (error) {
+    console.error("Error fetching customer data:", error);
+    return {
+      stats: { totalBookings: 0, pendingBookings: 0, completedBookings: 0, totalSites: 0 },
+      recentBookings: [],
+      upcomingBookings: [],
+    };
+  }
+}
+
 export default async function DashboardPage() {
   const user = await getOrCreateUser();
 
@@ -32,27 +75,7 @@ export default async function DashboardPage() {
     redirect("/admin");
   }
 
-  // Fetch dashboard data with fallback
-  let stats = { totalBookings: 0, pendingBookings: 0, completedBookings: 0, totalSites: 0 };
-  let recentBookings: {
-    id: string;
-    status: string;
-    scheduledDate: Date;
-    slot: string;
-    quotedPrice: number;
-    site: { name: string };
-    service: { name: string };
-  }[] = [];
-  let upcomingBookings: typeof recentBookings = [];
-
-  try {
-    const data = await getCustomerDashboardData();
-    stats = data.stats;
-    recentBookings = data.recentBookings;
-    upcomingBookings = data.upcomingBookings;
-  } catch (error) {
-    console.error("Failed to load customer dashboard data:", error);
-  }
+  const { stats, recentBookings, upcomingBookings } = await getCustomerData(user.id);
 
   return (
     <div>
