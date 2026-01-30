@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { auth } from "@clerk/nextjs/server";
+import { getOrCreateUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { PageHeader, StatCard, StatusBadge } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +14,6 @@ import {
   CheckCircle2,
   PoundSterling,
   ArrowRight,
-  AlertCircle,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -23,9 +22,15 @@ export const metadata = {
   title: "Admin Dashboard",
 };
 
-// Separate data fetching function with its own error handling
-async function getDashboardData(userId: string) {
-  const stats = {
+export default async function AdminDashboardPage() {
+  const user = await getOrCreateUser();
+
+  if (user.role !== "ADMIN") {
+    redirect("/dashboard");
+  }
+
+  // Default values for graceful degradation
+  let stats = {
     totalUsers: 0,
     totalEngineers: 0,
     totalBookings: 0,
@@ -33,7 +38,6 @@ async function getDashboardData(userId: string) {
     completedBookings: 0,
     revenue: 0,
   };
-
   let recentBookings: {
     id: string;
     status: string;
@@ -44,9 +48,10 @@ async function getDashboardData(userId: string) {
     customer: { name: string };
     site: { name: string };
   }[] = [];
+  let unassignedBookings: typeof recentBookings = [];
 
+  // Fetch data with error handling
   try {
-    // Fetch all data in parallel
     const [
       totalUsers,
       totalEngineers,
@@ -76,43 +81,21 @@ async function getDashboardData(userId: string) {
       }),
     ]);
 
-    return {
-      stats: {
-        totalUsers,
-        totalEngineers,
-        totalBookings,
-        pendingBookings,
-        completedBookings,
-        revenue: revenueAgg._sum.quotedPrice || 0,
-      },
-      recentBookings: bookings.slice(0, 5),
-      unassignedBookings: bookings.filter(
-        (b) => b.status === "PENDING" && !b.engineerId
-      ),
+    stats = {
+      totalUsers,
+      totalEngineers,
+      totalBookings,
+      pendingBookings,
+      completedBookings,
+      revenue: revenueAgg._sum.quotedPrice || 0,
     };
+    recentBookings = bookings.slice(0, 5);
+    unassignedBookings = bookings.filter(
+      (b) => b.status === "PENDING" && !b.engineerId
+    );
   } catch (error) {
-    console.error("Error fetching dashboard data:", error);
-    return { stats, recentBookings, unassignedBookings: [] };
+    console.error("Error fetching admin dashboard data:", error);
   }
-}
-
-export default async function AdminDashboardPage() {
-  // Get auth - don't wrap redirect() in try-catch as it throws a special Next.js error
-  const { userId } = await auth();
-  if (!userId) {
-    redirect("/sign-in");
-  }
-
-  const user = await db.user.findUnique({
-    where: { clerkId: userId },
-  });
-
-  if (!user || user.role !== "ADMIN") {
-    redirect("/dashboard");
-  }
-
-  // Fetch dashboard data
-  const { stats, recentBookings, unassignedBookings } = await getDashboardData(user.id);
 
   return (
     <div>

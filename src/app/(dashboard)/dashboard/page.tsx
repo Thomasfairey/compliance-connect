@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { auth } from "@clerk/nextjs/server";
+import { getOrCreateUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { PageHeader, StatCard, StatusBadge, EmptyState } from "@/components/shared";
 import { Button } from "@/components/ui/button";
@@ -21,62 +21,8 @@ export const metadata = {
   title: "Dashboard",
 };
 
-// Separate data fetching function
-async function getCustomerDashboardData(userId: string) {
-  const defaultStats = { totalBookings: 0, pendingBookings: 0, completedBookings: 0, totalSites: 0 };
-
-  try {
-    const [totalBookings, pendingBookings, completedBookings, totalSites, bookings] =
-      await Promise.all([
-        db.booking.count({ where: { customerId: userId } }),
-        db.booking.count({
-          where: { customerId: userId, status: { in: ["PENDING", "CONFIRMED"] } },
-        }),
-        db.booking.count({ where: { customerId: userId, status: "COMPLETED" } }),
-        db.site.count({ where: { userId } }),
-        db.booking.findMany({
-          where: { customerId: userId },
-          include: {
-            site: true,
-            service: true,
-          },
-          orderBy: { createdAt: "desc" },
-          take: 10,
-        }),
-      ]);
-
-    const recentBookings = bookings.slice(0, 5);
-    const upcomingBookings = bookings.filter(
-      (b) =>
-        (b.status === "PENDING" || b.status === "CONFIRMED") &&
-        new Date(b.scheduledDate) >= new Date()
-    );
-
-    return {
-      stats: { totalBookings, pendingBookings, completedBookings, totalSites },
-      recentBookings,
-      upcomingBookings,
-    };
-  } catch (error) {
-    console.error("Error fetching customer dashboard data:", error);
-    return { stats: defaultStats, recentBookings: [], upcomingBookings: [] };
-  }
-}
-
 export default async function DashboardPage() {
-  // Get auth - don't wrap redirect() in try-catch as it throws a special Next.js error
-  const { userId } = await auth();
-  if (!userId) {
-    redirect("/sign-in");
-  }
-
-  const user = await db.user.findUnique({
-    where: { clerkId: userId },
-  });
-
-  if (!user) {
-    redirect("/sign-in");
-  }
+  const user = await getOrCreateUser();
 
   // Redirect engineers and admins to their respective dashboards
   if (user.role === "ENGINEER") {
@@ -86,8 +32,49 @@ export default async function DashboardPage() {
     redirect("/admin");
   }
 
-  // Fetch dashboard data
-  const { stats, recentBookings, upcomingBookings } = await getCustomerDashboardData(user.id);
+  // Default values
+  let stats = { totalBookings: 0, pendingBookings: 0, completedBookings: 0, totalSites: 0 };
+  let recentBookings: {
+    id: string;
+    status: string;
+    scheduledDate: Date;
+    slot: string;
+    quotedPrice: number;
+    site: { name: string };
+    service: { name: string };
+  }[] = [];
+  let upcomingBookings: typeof recentBookings = [];
+
+  try {
+    const [totalBookings, pendingBookings, completedBookings, totalSites, bookings] =
+      await Promise.all([
+        db.booking.count({ where: { customerId: user.id } }),
+        db.booking.count({
+          where: { customerId: user.id, status: { in: ["PENDING", "CONFIRMED"] } },
+        }),
+        db.booking.count({ where: { customerId: user.id, status: "COMPLETED" } }),
+        db.site.count({ where: { userId: user.id } }),
+        db.booking.findMany({
+          where: { customerId: user.id },
+          include: {
+            site: true,
+            service: true,
+          },
+          orderBy: { createdAt: "desc" },
+          take: 10,
+        }),
+      ]);
+
+    stats = { totalBookings, pendingBookings, completedBookings, totalSites };
+    recentBookings = bookings.slice(0, 5);
+    upcomingBookings = bookings.filter(
+      (b) =>
+        (b.status === "PENDING" || b.status === "CONFIRMED") &&
+        new Date(b.scheduledDate) >= new Date()
+    );
+  } catch (error) {
+    console.error("Error fetching customer dashboard data:", error);
+  }
 
   return (
     <div>

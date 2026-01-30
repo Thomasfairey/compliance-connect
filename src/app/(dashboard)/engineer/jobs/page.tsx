@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
+import { getOrCreateUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { PageHeader, StatusBadge, EmptyState } from "@/components/shared";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,8 +14,14 @@ export const metadata = {
   title: "My Jobs",
 };
 
-// Separate data fetching function
-async function getEngineerJobsData(userId: string) {
+export default async function EngineerJobsPage() {
+  const user = await getOrCreateUser();
+
+  if (user.role !== "ENGINEER" && user.role !== "ADMIN") {
+    redirect("/dashboard");
+  }
+
+  // Default values
   let myJobs: {
     id: string;
     status: string;
@@ -30,7 +36,7 @@ async function getEngineerJobsData(userId: string) {
   try {
     const [myJobsData, availableJobsData] = await Promise.all([
       db.booking.findMany({
-        where: { engineerId: userId },
+        where: { engineerId: user.id },
         include: {
           service: true,
           site: true,
@@ -50,30 +56,11 @@ async function getEngineerJobsData(userId: string) {
       }),
     ]);
 
-    return { myJobs: myJobsData, availableJobs: availableJobsData };
+    myJobs = myJobsData;
+    availableJobs = availableJobsData;
   } catch (error) {
     console.error("Error fetching engineer jobs:", error);
-    return { myJobs, availableJobs };
   }
-}
-
-export default async function EngineerJobsPage() {
-  // Get auth - don't wrap redirect() in try-catch as it throws a special Next.js error
-  const { userId } = await auth();
-  if (!userId) {
-    redirect("/sign-in");
-  }
-
-  const user = await db.user.findUnique({
-    where: { clerkId: userId },
-  });
-
-  if (!user || (user.role !== "ENGINEER" && user.role !== "ADMIN")) {
-    redirect("/dashboard");
-  }
-
-  // Fetch jobs data
-  const { myJobs, availableJobs } = await getEngineerJobsData(user.id);
 
   const activeJobs = myJobs.filter(
     (j) => j.status === "CONFIRMED" || j.status === "IN_PROGRESS"

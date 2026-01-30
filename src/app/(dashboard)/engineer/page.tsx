@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { auth } from "@clerk/nextjs/server";
+import { getOrCreateUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { PageHeader, StatCard, StatusBadge } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,15 +21,20 @@ export const metadata = {
   title: "Engineer Dashboard",
 };
 
-// Separate data fetching function
-async function getEngineerDashboardData(userId: string) {
-  const stats = {
+export default async function EngineerDashboardPage() {
+  const user = await getOrCreateUser();
+
+  if (user.role !== "ENGINEER" && user.role !== "ADMIN") {
+    redirect("/dashboard");
+  }
+
+  // Default values
+  let stats = {
     assignedJobs: 0,
     inProgressJobs: 0,
     completedToday: 0,
     completedThisWeek: 0,
   };
-
   let todaysJobs: {
     id: string;
     status: string;
@@ -53,30 +58,30 @@ async function getEngineerDashboardData(userId: string) {
       await Promise.all([
         db.booking.count({
           where: {
-            engineerId: userId,
+            engineerId: user.id,
             status: { in: ["CONFIRMED", "IN_PROGRESS"] },
           },
         }),
         db.booking.count({
-          where: { engineerId: userId, status: "IN_PROGRESS" },
+          where: { engineerId: user.id, status: "IN_PROGRESS" },
         }),
         db.booking.count({
           where: {
-            engineerId: userId,
+            engineerId: user.id,
             status: "COMPLETED",
             completedAt: { gte: today },
           },
         }),
         db.booking.count({
           where: {
-            engineerId: userId,
+            engineerId: user.id,
             status: "COMPLETED",
             completedAt: { gte: weekStart },
           },
         }),
         db.booking.findMany({
           where: {
-            engineerId: userId,
+            engineerId: user.id,
             scheduledDate: { gte: today, lt: tomorrow },
             status: { in: ["CONFIRMED", "IN_PROGRESS"] },
           },
@@ -100,39 +105,17 @@ async function getEngineerDashboardData(userId: string) {
         }),
       ]);
 
-    return {
-      stats: {
-        assignedJobs,
-        inProgressJobs,
-        completedToday,
-        completedThisWeek,
-      },
-      todaysJobs: todaysJobsData,
-      availableJobs: availableJobsData,
+    stats = {
+      assignedJobs,
+      inProgressJobs,
+      completedToday,
+      completedThisWeek,
     };
+    todaysJobs = todaysJobsData;
+    availableJobs = availableJobsData;
   } catch (error) {
     console.error("Error fetching engineer dashboard data:", error);
-    return { stats, todaysJobs, availableJobs };
   }
-}
-
-export default async function EngineerDashboardPage() {
-  // Get auth - don't wrap redirect() in try-catch as it throws a special Next.js error
-  const { userId } = await auth();
-  if (!userId) {
-    redirect("/sign-in");
-  }
-
-  const user = await db.user.findUnique({
-    where: { clerkId: userId },
-  });
-
-  if (!user || (user.role !== "ENGINEER" && user.role !== "ADMIN")) {
-    redirect("/dashboard");
-  }
-
-  // Fetch dashboard data
-  const { stats, todaysJobs, availableJobs } = await getEngineerDashboardData(user.id);
 
   return (
     <div>

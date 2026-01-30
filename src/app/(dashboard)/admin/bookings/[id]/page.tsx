@@ -32,7 +32,7 @@ import {
   assignEngineerToBooking,
   updateBookingStatus,
 } from "@/lib/actions";
-import { formatDate, formatPrice } from "@/lib/utils";
+import { formatDate, formatPrice, getSlotTime } from "@/lib/utils";
 import type { BookingWithRelations } from "@/types";
 import type { User as UserType, BookingStatus } from "@prisma/client";
 
@@ -194,7 +194,7 @@ export default function AdminBookingDetailPage() {
                     Time Slot
                   </h3>
                   <p className="text-gray-900">
-                    {booking.slot === "AM" ? "Morning (8am - 12pm)" : "Afternoon (12pm - 5pm)"}
+                    {getSlotTime(booking.slot)}
                   </p>
                 </div>
               </div>
