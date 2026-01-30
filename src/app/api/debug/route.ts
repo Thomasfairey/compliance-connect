@@ -38,6 +38,51 @@ export async function GET() {
         });
         debug.userFound = !!user;
         debug.userData = user ? { id: user.id, role: user.role, email: user.email } : null;
+
+        // Test customer data queries (same as dashboard)
+        if (user) {
+          try {
+            const [totalBookings, pendingBookings, completedBookings, totalSites] =
+              await Promise.all([
+                db.booking.count({ where: { customerId: user.id } }),
+                db.booking.count({
+                  where: { customerId: user.id, status: { in: ["PENDING", "CONFIRMED"] } },
+                }),
+                db.booking.count({ where: { customerId: user.id, status: "COMPLETED" } }),
+                db.site.count({ where: { userId: user.id } }),
+              ]);
+            debug.customerData = {
+              totalBookings,
+              pendingBookings,
+              completedBookings,
+              totalSites,
+            };
+          } catch (dataError) {
+            debug.customerDataError = dataError instanceof Error ? dataError.message : String(dataError);
+          }
+
+          // Test booking fetch with relations
+          try {
+            const bookings = await db.booking.findMany({
+              where: { customerId: user.id },
+              include: {
+                site: true,
+                service: true,
+              },
+              orderBy: { createdAt: "desc" },
+              take: 5,
+            });
+            debug.bookingsCount = bookings.length;
+            debug.firstBooking = bookings[0] ? {
+              id: bookings[0].id,
+              status: bookings[0].status,
+              siteName: bookings[0].site?.name,
+              serviceName: bookings[0].service?.name,
+            } : null;
+          } catch (bookingError) {
+            debug.bookingFetchError = bookingError instanceof Error ? bookingError.message : String(bookingError);
+          }
+        }
       } catch (lookupError) {
         debug.userLookupError = lookupError instanceof Error ? lookupError.message : String(lookupError);
       }
