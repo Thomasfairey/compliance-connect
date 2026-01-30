@@ -245,6 +245,21 @@ export async function getBookingById(
   return booking;
 }
 
+// Convert time slot to AM/PM period
+function getSlotPeriod(slot: string): "AM" | "PM" {
+  // Handle time-based slots (e.g., "10:00", "14:00")
+  if (slot.includes(":")) {
+    const hour = parseInt(slot.split(":")[0], 10);
+    return hour < 12 ? "AM" : "PM";
+  }
+  // Handle period-based slots
+  if (slot === "AM" || slot === "PM") {
+    return slot;
+  }
+  // Default to AM for unknown formats
+  return "AM";
+}
+
 // Find the best available engineer for a booking
 async function findAvailableEngineer(
   serviceId: string,
@@ -252,8 +267,25 @@ async function findAvailableEngineer(
   scheduledDate: Date,
   slot: string
 ): Promise<string | null> {
-  // Extract postcode prefix (e.g., "SW1" from "SW1A 1AA")
-  const postcodePrefix = sitePostcode.replace(/\s/g, "").toUpperCase().slice(0, -3);
+  console.log(`[Auto-Allocation] Finding engineer for service=${serviceId}, postcode=${sitePostcode}, date=${scheduledDate.toISOString()}, slot=${slot}`);
+
+  // Extract postcode prefix (e.g., "SW1A" from "SW1A 1AA")
+  const cleanPostcode = sitePostcode.replace(/\s/g, "").toUpperCase();
+  const postcodePrefix = cleanPostcode.length > 3 ? cleanPostcode.slice(0, -3) : cleanPostcode;
+
+  // Build a list of postcode prefixes to check (most specific to least)
+  const postcodePrefixes = [
+    postcodePrefix,                    // e.g., "SW1A"
+    postcodePrefix.slice(0, 3),        // e.g., "SW1"
+    postcodePrefix.slice(0, 2),        // e.g., "SW"
+    postcodePrefix.slice(0, 1),        // e.g., "S"
+  ].filter((p, i, arr) => p.length > 0 && arr.indexOf(p) === i); // Remove duplicates and empty
+
+  console.log(`[Auto-Allocation] Checking postcode prefixes: ${postcodePrefixes.join(", ")}`);
+
+  // Get the slot period for availability checking
+  const slotPeriod = getSlotPeriod(slot);
+  console.log(`[Auto-Allocation] Slot "${slot}" mapped to period "${slotPeriod}"`);
 
   // Find engineers who:
   // 1. Have APPROVED status
@@ -268,7 +300,7 @@ async function findAvailableEngineer(
       coverageAreas: {
         some: {
           postcodePrefix: {
-            in: [postcodePrefix, postcodePrefix.slice(0, 2), postcodePrefix.slice(0, 1)],
+            in: postcodePrefixes,
           },
         },
       },
@@ -278,38 +310,58 @@ async function findAvailableEngineer(
       availability: {
         where: {
           date: scheduledDate,
-          slot: slot === "AM" || slot === "PM" ? slot : undefined,
         },
       },
     },
   });
 
+  console.log(`[Auto-Allocation] Found ${eligibleEngineers.length} eligible engineers`);
+
   if (eligibleEngineers.length === 0) {
+    // Debug: Check what's missing
+    const allProfiles = await db.engineerProfile.count({ where: { status: "APPROVED" } });
+    const withService = await db.engineerProfile.count({
+      where: { status: "APPROVED", competencies: { some: { serviceId } } },
+    });
+    console.log(`[Auto-Allocation] Debug: ${allProfiles} approved profiles, ${withService} have this service competency`);
     return null;
   }
 
-  // Check which engineers are available (not already booked)
+  // Check which engineers are available (not already booked for this time)
   const dateStart = new Date(scheduledDate);
   dateStart.setHours(0, 0, 0, 0);
   const dateEnd = new Date(scheduledDate);
   dateEnd.setHours(23, 59, 59, 999);
 
+  // Check for existing bookings at the same time OR in the same period
   const existingBookings = await db.booking.findMany({
     where: {
       scheduledDate: { gte: dateStart, lte: dateEnd },
-      slot,
       engineerId: { not: null },
       status: { in: ["CONFIRMED", "IN_PROGRESS"] },
     },
-    select: { engineerId: true },
+    select: { engineerId: true, slot: true },
   });
 
-  const bookedEngineerIds = new Set(existingBookings.map(b => b.engineerId));
+  // Build a map of booked engineer IDs for this slot
+  const bookedEngineerIds = new Set<string>();
+  for (const booking of existingBookings) {
+    // Check if booking conflicts with our slot
+    const bookingPeriod = getSlotPeriod(booking.slot);
+    if (booking.slot === slot || bookingPeriod === slotPeriod) {
+      if (booking.engineerId) {
+        bookedEngineerIds.add(booking.engineerId);
+      }
+    }
+  }
+
+  console.log(`[Auto-Allocation] ${bookedEngineerIds.size} engineers already booked for this slot`);
 
   // Find first available engineer
   for (const engineer of eligibleEngineers) {
     // Skip if already booked
     if (bookedEngineerIds.has(engineer.userId)) {
+      console.log(`[Auto-Allocation] ${engineer.user.name} already booked, skipping`);
       continue;
     }
 
@@ -319,10 +371,14 @@ async function findAvailableEngineer(
     );
 
     if (!availabilityRecord || availabilityRecord.isAvailable) {
+      console.log(`[Auto-Allocation] Selected: ${engineer.user.name} (${engineer.userId})`);
       return engineer.userId;
+    } else {
+      console.log(`[Auto-Allocation] ${engineer.user.name} marked as unavailable, skipping`);
     }
   }
 
+  console.log(`[Auto-Allocation] No available engineer found`);
   return null;
 }
 

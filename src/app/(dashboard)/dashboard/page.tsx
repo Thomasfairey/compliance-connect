@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getOrCreateUser } from "@/lib/auth";
+import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { PageHeader, StatCard, StatusBadge, EmptyState } from "@/components/shared";
 import { Button } from "@/components/ui/button";
@@ -21,8 +21,67 @@ export const metadata = {
   title: "Dashboard",
 };
 
+// Separate data fetching function
+async function getCustomerDashboardData(userId: string) {
+  const defaultStats = { totalBookings: 0, pendingBookings: 0, completedBookings: 0, totalSites: 0 };
+
+  try {
+    const [totalBookings, pendingBookings, completedBookings, totalSites, bookings] =
+      await Promise.all([
+        db.booking.count({ where: { customerId: userId } }),
+        db.booking.count({
+          where: { customerId: userId, status: { in: ["PENDING", "CONFIRMED"] } },
+        }),
+        db.booking.count({ where: { customerId: userId, status: "COMPLETED" } }),
+        db.site.count({ where: { userId } }),
+        db.booking.findMany({
+          where: { customerId: userId },
+          include: {
+            site: true,
+            service: true,
+          },
+          orderBy: { createdAt: "desc" },
+          take: 10,
+        }),
+      ]);
+
+    const recentBookings = bookings.slice(0, 5);
+    const upcomingBookings = bookings.filter(
+      (b) =>
+        (b.status === "PENDING" || b.status === "CONFIRMED") &&
+        new Date(b.scheduledDate) >= new Date()
+    );
+
+    return {
+      stats: { totalBookings, pendingBookings, completedBookings, totalSites },
+      recentBookings,
+      upcomingBookings,
+    };
+  } catch (error) {
+    console.error("Error fetching customer dashboard data:", error);
+    return { stats: defaultStats, recentBookings: [], upcomingBookings: [] };
+  }
+}
+
 export default async function DashboardPage() {
-  const user = await getOrCreateUser();
+  // Get auth with minimal calls
+  let user;
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      redirect("/sign-in");
+    }
+    user = await db.user.findUnique({
+      where: { clerkId: userId },
+    });
+  } catch (error) {
+    console.error("Auth error:", error);
+    redirect("/sign-in");
+  }
+
+  if (!user) {
+    redirect("/sign-in");
+  }
 
   // Redirect engineers and admins to their respective dashboards
   if (user.role === "ENGINEER") {
@@ -32,33 +91,8 @@ export default async function DashboardPage() {
     redirect("/admin");
   }
 
-  // Fetch stats directly to avoid auth race conditions
-  const [totalBookings, pendingBookings, completedBookings, totalSites, bookings] =
-    await Promise.all([
-      db.booking.count({ where: { customerId: user.id } }),
-      db.booking.count({
-        where: { customerId: user.id, status: { in: ["PENDING", "CONFIRMED"] } },
-      }),
-      db.booking.count({ where: { customerId: user.id, status: "COMPLETED" } }),
-      db.site.count({ where: { userId: user.id } }),
-      db.booking.findMany({
-        where: { customerId: user.id },
-        include: {
-          site: true,
-          service: true,
-        },
-        orderBy: { createdAt: "desc" },
-        take: 10,
-      }),
-    ]);
-
-  const stats = { totalBookings, pendingBookings, completedBookings, totalSites };
-  const recentBookings = bookings.slice(0, 5);
-  const upcomingBookings = bookings.filter(
-    (b) =>
-      (b.status === "PENDING" || b.status === "CONFIRMED") &&
-      new Date(b.scheduledDate) >= new Date()
-  );
+  // Fetch dashboard data
+  const { stats, recentBookings, upcomingBookings } = await getCustomerDashboardData(user.id);
 
   return (
     <div>

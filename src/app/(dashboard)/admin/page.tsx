@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getOrCreateUser } from "@/lib/auth";
+import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { PageHeader, StatCard, StatusBadge } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   PoundSterling,
   ArrowRight,
+  AlertCircle,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -22,15 +23,9 @@ export const metadata = {
   title: "Admin Dashboard",
 };
 
-export default async function AdminDashboardPage() {
-  const user = await getOrCreateUser();
-
-  if (user.role !== "ADMIN") {
-    redirect("/dashboard");
-  }
-
-  // Default values
-  let stats = {
+// Separate data fetching function with its own error handling
+async function getDashboardData(userId: string) {
+  const stats = {
     totalUsers: 0,
     totalEngineers: 0,
     totalBookings: 0,
@@ -38,6 +33,7 @@ export default async function AdminDashboardPage() {
     completedBookings: 0,
     revenue: 0,
   };
+
   let recentBookings: {
     id: string;
     status: string;
@@ -48,10 +44,9 @@ export default async function AdminDashboardPage() {
     customer: { name: string };
     site: { name: string };
   }[] = [];
-  let unassignedBookings: typeof recentBookings = [];
 
   try {
-    // Fetch stats directly - wrapped in try-catch for safety
+    // Fetch all data in parallel
     const [
       totalUsers,
       totalEngineers,
@@ -81,22 +76,48 @@ export default async function AdminDashboardPage() {
       }),
     ]);
 
-    stats = {
-      totalUsers,
-      totalEngineers,
-      totalBookings,
-      pendingBookings,
-      completedBookings,
-      revenue: revenueAgg._sum.quotedPrice || 0,
+    return {
+      stats: {
+        totalUsers,
+        totalEngineers,
+        totalBookings,
+        pendingBookings,
+        completedBookings,
+        revenue: revenueAgg._sum.quotedPrice || 0,
+      },
+      recentBookings: bookings.slice(0, 5),
+      unassignedBookings: bookings.filter(
+        (b) => b.status === "PENDING" && !b.engineerId
+      ),
     };
-
-    recentBookings = bookings.slice(0, 5);
-    unassignedBookings = bookings.filter(
-      (b) => b.status === "PENDING" && !b.engineerId
-    );
   } catch (error) {
-    console.error("Error fetching admin dashboard data:", error);
+    console.error("Error fetching dashboard data:", error);
+    return { stats, recentBookings, unassignedBookings: [] };
   }
+}
+
+export default async function AdminDashboardPage() {
+  // Get auth and user data with minimal calls
+  let user;
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      redirect("/sign-in");
+    }
+    user = await db.user.findUnique({
+      where: { clerkId: userId },
+    });
+  } catch (error) {
+    console.error("Auth error:", error);
+    redirect("/sign-in");
+  }
+
+  if (!user || user.role !== "ADMIN") {
+    redirect("/dashboard");
+  }
+
+  // Fetch dashboard data
+  const { stats, recentBookings, unassignedBookings } = await getDashboardData(user.id);
 
   return (
     <div>

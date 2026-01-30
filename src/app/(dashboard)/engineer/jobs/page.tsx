@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getOrCreateUser } from "@/lib/auth";
+import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { PageHeader, StatusBadge, EmptyState } from "@/components/shared";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,14 +14,8 @@ export const metadata = {
   title: "My Jobs",
 };
 
-export default async function EngineerJobsPage() {
-  const user = await getOrCreateUser();
-
-  if (user.role !== "ENGINEER" && user.role !== "ADMIN") {
-    redirect("/dashboard");
-  }
-
-  // Default values
+// Separate data fetching function
+async function getEngineerJobsData(userId: string) {
   let myJobs: {
     id: string;
     status: string;
@@ -36,7 +30,7 @@ export default async function EngineerJobsPage() {
   try {
     const [myJobsData, availableJobsData] = await Promise.all([
       db.booking.findMany({
-        where: { engineerId: user.id },
+        where: { engineerId: userId },
         include: {
           service: true,
           site: true,
@@ -56,11 +50,35 @@ export default async function EngineerJobsPage() {
       }),
     ]);
 
-    myJobs = myJobsData;
-    availableJobs = availableJobsData;
+    return { myJobs: myJobsData, availableJobs: availableJobsData };
   } catch (error) {
     console.error("Error fetching engineer jobs:", error);
+    return { myJobs, availableJobs };
   }
+}
+
+export default async function EngineerJobsPage() {
+  // Get auth with minimal calls
+  let user;
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      redirect("/sign-in");
+    }
+    user = await db.user.findUnique({
+      where: { clerkId: userId },
+    });
+  } catch (error) {
+    console.error("Auth error:", error);
+    redirect("/sign-in");
+  }
+
+  if (!user || (user.role !== "ENGINEER" && user.role !== "ADMIN")) {
+    redirect("/dashboard");
+  }
+
+  // Fetch jobs data
+  const { myJobs, availableJobs } = await getEngineerJobsData(user.id);
 
   const activeJobs = myJobs.filter(
     (j) => j.status === "CONFIRMED" || j.status === "IN_PROGRESS"
