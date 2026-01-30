@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { getOrCreateUser } from "@/lib/auth";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardRootLayout({
   children,
 }: {
