@@ -21,7 +21,25 @@ export default async function EngineerJobsPage() {
     redirect("/dashboard");
   }
 
-  const { myJobs, availableJobs } = await getEngineerJobsData();
+  // Fetch jobs data with fallback
+  let myJobs: {
+    id: string;
+    status: string;
+    scheduledDate: Date;
+    slot: string;
+    estimatedQty: number;
+    service: { name: string; unitName: string };
+    site: { name: string; address: string; postcode: string };
+  }[] = [];
+  let availableJobs: typeof myJobs = [];
+
+  try {
+    const data = await getEngineerJobsData();
+    myJobs = data.myJobs;
+    availableJobs = data.availableJobs;
+  } catch (error) {
+    console.error("Failed to load engineer jobs data:", error);
+  }
 
   const activeJobs = myJobs.filter(
     (j) => j.status === "CONFIRMED" || j.status === "IN_PROGRESS"

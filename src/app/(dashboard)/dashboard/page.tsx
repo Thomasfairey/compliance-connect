@@ -32,7 +32,27 @@ export default async function DashboardPage() {
     redirect("/admin");
   }
 
-  const { stats, recentBookings, upcomingBookings } = await getCustomerDashboardData();
+  // Fetch dashboard data with fallback
+  let stats = { totalBookings: 0, pendingBookings: 0, completedBookings: 0, totalSites: 0 };
+  let recentBookings: {
+    id: string;
+    status: string;
+    scheduledDate: Date;
+    slot: string;
+    quotedPrice: number;
+    site: { name: string };
+    service: { name: string };
+  }[] = [];
+  let upcomingBookings: typeof recentBookings = [];
+
+  try {
+    const data = await getCustomerDashboardData();
+    stats = data.stats;
+    recentBookings = data.recentBookings;
+    upcomingBookings = data.upcomingBookings;
+  } catch (error) {
+    console.error("Failed to load customer dashboard data:", error);
+  }
 
   return (
     <div>

@@ -28,7 +28,31 @@ export default async function EngineerDashboardPage() {
     redirect("/dashboard");
   }
 
-  const { stats, todaysJobs, availableJobs } = await getEngineerDashboardData();
+  // Fetch dashboard data with fallback
+  let stats = {
+    assignedJobs: 0,
+    inProgressJobs: 0,
+    completedToday: 0,
+    completedThisWeek: 0,
+  };
+  let todaysJobs: {
+    id: string;
+    status: string;
+    scheduledDate: Date;
+    slot: string;
+    service: { name: string };
+    site: { name: string; postcode: string };
+  }[] = [];
+  let availableJobs: typeof todaysJobs = [];
+
+  try {
+    const data = await getEngineerDashboardData();
+    stats = data.stats;
+    todaysJobs = data.todaysJobs;
+    availableJobs = data.availableJobs;
+  } catch (error) {
+    console.error("Failed to load engineer dashboard data:", error);
+  }
 
   return (
     <div>

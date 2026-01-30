@@ -29,7 +29,35 @@ export default async function AdminDashboardPage() {
     redirect("/dashboard");
   }
 
-  const { stats, recentBookings, unassignedBookings } = await getAdminDashboardData();
+  // Fetch dashboard data with fallback
+  let stats = {
+    totalUsers: 0,
+    totalEngineers: 0,
+    totalBookings: 0,
+    pendingBookings: 0,
+    completedBookings: 0,
+    revenue: 0,
+  };
+  let recentBookings: {
+    id: string;
+    status: string;
+    scheduledDate: Date;
+    quotedPrice: number;
+    engineerId: string | null;
+    service: { name: string };
+    customer: { name: string };
+    site: { name: string };
+  }[] = [];
+  let unassignedBookings: typeof recentBookings = [];
+
+  try {
+    const data = await getAdminDashboardData();
+    stats = data.stats;
+    recentBookings = data.recentBookings;
+    unassignedBookings = data.unassignedBookings;
+  } catch (error) {
+    console.error("Failed to load admin dashboard data:", error);
+  }
 
   return (
     <div>
