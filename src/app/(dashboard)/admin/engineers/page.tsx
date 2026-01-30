@@ -16,6 +16,7 @@ import {
 import { formatDate } from "@/lib/utils";
 import { RoleSelector } from "@/components/admin/role-selector";
 import { EngineerApprovalCard } from "@/components/admin/engineer-approval-card";
+import { SetupEngineersButton } from "@/components/admin/setup-engineers-button";
 import { Users, UserCheck, Clock, XCircle } from "lucide-react";
 
 export const metadata = {
@@ -55,6 +56,11 @@ export default async function AdminEngineersPage() {
         title="Users & Engineers"
         description="Manage user roles and approve engineer applications"
       />
+
+      {/* Auto-Allocation Setup */}
+      <div className="mb-6">
+        <SetupEngineersButton />
+      </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

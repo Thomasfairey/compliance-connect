@@ -454,3 +454,147 @@ export async function getEngineerAvailability(
     isAvailable: a.isAvailable,
   }));
 }
+
+// Admin: Setup engineer for auto-allocation
+// This approves the engineer and adds all competencies + broad UK coverage
+export async function setupEngineerForAutoAllocation(
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await requireRole(["ADMIN"]);
+
+    // Get or create engineer profile
+    let profile = await db.engineerProfile.findUnique({
+      where: { userId },
+    });
+
+    if (!profile) {
+      // Create profile
+      profile = await db.engineerProfile.create({
+        data: {
+          userId,
+          status: "APPROVED",
+          approvedAt: new Date(),
+          yearsExperience: 5,
+          bio: "Experienced compliance testing engineer",
+        },
+      });
+    } else {
+      // Update to approved
+      await db.engineerProfile.update({
+        where: { id: profile.id },
+        data: {
+          status: "APPROVED",
+          approvedAt: new Date(),
+        },
+      });
+    }
+
+    // Get all active services
+    const services = await db.service.findMany({
+      where: { isActive: true },
+    });
+
+    // Add competencies for all services
+    for (const service of services) {
+      await db.engineerCompetency.upsert({
+        where: {
+          engineerProfileId_serviceId: {
+            engineerProfileId: profile.id,
+            serviceId: service.id,
+          },
+        },
+        update: { certified: true, experienceYears: 5 },
+        create: {
+          engineerProfileId: profile.id,
+          serviceId: service.id,
+          certified: true,
+          experienceYears: 5,
+        },
+      });
+    }
+
+    // Add broad UK coverage areas (common postcode prefixes)
+    const ukPostcodes = [
+      // London
+      "E", "EC", "N", "NW", "SE", "SW", "W", "WC",
+      // Major cities
+      "B", "M", "L", "G", "EH", "CF", "BS", "LE", "NG", "S",
+      "NE", "SR", "DH", "TS", "DL", "HG", "YO", "LS", "BD", "HX",
+      "WF", "HD", "DN", "HU", "LN", "PE", "CB", "IP", "NR", "CO",
+      "CM", "SS", "RM", "IG", "DA", "BR", "CR", "SM", "KT", "TW",
+      "UB", "HA", "EN", "WD", "AL", "SG", "HP", "LU", "MK", "NN",
+      "CV", "WS", "WV", "DY", "B", "ST", "DE", "SK", "CW", "WA",
+      "CH", "PR", "BL", "OL", "BB", "FY", "LA", "CA", "DG", "TD",
+      "ML", "KA", "PA", "FK", "KY", "DD", "PH", "AB", "IV", "KW",
+      "BT", "SA", "LD", "SY", "LL", "CH",
+      "OX", "RG", "SL", "GU", "PO", "SO", "SP", "BA", "SN", "GL",
+      "HR", "WR", "TF", "BN", "RH", "TN", "CT", "ME", "EX", "PL",
+      "TQ", "TR", "DT", "TA", "JE", "GY", "IM",
+    ];
+
+    for (const postcode of ukPostcodes) {
+      await db.engineerCoverageArea.upsert({
+        where: {
+          engineerProfileId_postcodePrefix: {
+            engineerProfileId: profile.id,
+            postcodePrefix: postcode,
+          },
+        },
+        update: { radiusKm: 50 },
+        create: {
+          engineerProfileId: profile.id,
+          postcodePrefix: postcode,
+          radiusKm: 50,
+        },
+      });
+    }
+
+    // Also ensure user has ENGINEER role
+    await db.user.update({
+      where: { id: userId },
+      data: { role: "ENGINEER" },
+    });
+
+    revalidatePath("/admin/engineers");
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error setting up engineer:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to setup engineer",
+    };
+  }
+}
+
+// Admin: Setup all engineers for auto-allocation
+export async function setupAllEngineersForAutoAllocation(): Promise<{
+  success: boolean;
+  count: number;
+  error?: string;
+}> {
+  try {
+    await requireRole(["ADMIN"]);
+
+    // Get all users with ENGINEER role
+    const engineers = await db.user.findMany({
+      where: { role: "ENGINEER" },
+    });
+
+    let count = 0;
+    for (const engineer of engineers) {
+      const result = await setupEngineerForAutoAllocation(engineer.id);
+      if (result.success) count++;
+    }
+
+    return { success: true, count };
+  } catch (error) {
+    console.error("Error setting up all engineers:", error);
+    return {
+      success: false,
+      count: 0,
+      error: error instanceof Error ? error.message : "Failed to setup engineers",
+    };
+  }
+}
