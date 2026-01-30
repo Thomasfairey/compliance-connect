@@ -23,7 +23,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SignedIn, SignedOut } from "@clerk/nextjs";
+import { SignedIn, SignedOut, ClerkLoading, ClerkLoaded } from "@clerk/nextjs";
 
 const fadeIn = {
   initial: { opacity: 0, y: 20 },
@@ -218,7 +218,7 @@ export default function HomePage() {
             </Link>
 
             <div className="flex items-center gap-3">
-              <SignedOut>
+              <ClerkLoading>
                 <Link href="/engineer/login">
                   <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
                     <Wrench className="w-4 h-4 mr-2" />
@@ -235,14 +235,34 @@ export default function HomePage() {
                     Get Started
                   </Button>
                 </Link>
-              </SignedOut>
-              <SignedIn>
-                <Link href="/dashboard">
-                  <Button size="sm" className="gradient-primary text-white border-0 shadow-lg hover:opacity-90">
-                    Dashboard
-                  </Button>
-                </Link>
-              </SignedIn>
+              </ClerkLoading>
+              <ClerkLoaded>
+                <SignedOut>
+                  <Link href="/engineer/login">
+                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+                      <Wrench className="w-4 h-4 mr-2" />
+                      Engineer Login
+                    </Button>
+                  </Link>
+                  <Link href="/sign-in">
+                    <Button variant="ghost" size="sm">
+                      Sign In
+                    </Button>
+                  </Link>
+                  <Link href="/sign-up">
+                    <Button size="sm" className="gradient-primary text-white border-0 shadow-lg hover:opacity-90">
+                      Get Started
+                    </Button>
+                  </Link>
+                </SignedOut>
+                <SignedIn>
+                  <Link href="/dashboard">
+                    <Button size="sm" className="gradient-primary text-white border-0 shadow-lg hover:opacity-90">
+                      Dashboard
+                    </Button>
+                  </Link>
+                </SignedIn>
+              </ClerkLoaded>
             </div>
           </div>
         </div>
@@ -291,7 +311,7 @@ export default function HomePage() {
             className="flex flex-col sm:flex-row items-center justify-center gap-4"
             variants={fadeIn}
           >
-            <SignedOut>
+            <ClerkLoading>
               <Link href="/sign-up">
                 <Button size="lg" className="gradient-accent text-white border-0 shadow-xl hover:opacity-90 text-base px-8 h-14 rounded-xl">
                   Book Your First Test
@@ -303,20 +323,35 @@ export default function HomePage() {
                   View Services
                 </Button>
               </Link>
-            </SignedOut>
-            <SignedIn>
-              <Link href="/bookings/new">
-                <Button size="lg" className="gradient-accent text-white border-0 shadow-xl hover:opacity-90 text-base px-8 h-14 rounded-xl">
-                  Book a Service
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
-              <Link href="/dashboard">
-                <Button variant="outline" size="lg" className="bg-white/10 border-white/20 text-white hover:bg-white/20 text-base px-8 h-14 rounded-xl">
-                  View Dashboard
-                </Button>
-              </Link>
-            </SignedIn>
+            </ClerkLoading>
+            <ClerkLoaded>
+              <SignedOut>
+                <Link href="/sign-up">
+                  <Button size="lg" className="gradient-accent text-white border-0 shadow-xl hover:opacity-90 text-base px-8 h-14 rounded-xl">
+                    Book Your First Test
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+                <Link href="#services">
+                  <Button variant="outline" size="lg" className="bg-white/10 border-white/20 text-white hover:bg-white/20 text-base px-8 h-14 rounded-xl">
+                    View Services
+                  </Button>
+                </Link>
+              </SignedOut>
+              <SignedIn>
+                <Link href="/bookings/new">
+                  <Button size="lg" className="gradient-accent text-white border-0 shadow-xl hover:opacity-90 text-base px-8 h-14 rounded-xl">
+                    Book a Service
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+                <Link href="/dashboard">
+                  <Button variant="outline" size="lg" className="bg-white/10 border-white/20 text-white hover:bg-white/20 text-base px-8 h-14 rounded-xl">
+                    View Dashboard
+                  </Button>
+                </Link>
+              </SignedIn>
+            </ClerkLoaded>
           </motion.div>
 
           {/* Stats Bar */}
@@ -394,22 +429,32 @@ export default function HomePage() {
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
           >
-            <SignedOut>
+            <ClerkLoading>
               <Link href="/sign-up">
                 <Button size="lg" className="gradient-primary text-white border-0 shadow-lg hover:opacity-90">
                   Get Started
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
-            </SignedOut>
-            <SignedIn>
-              <Link href="/bookings/new">
-                <Button size="lg" className="gradient-primary text-white border-0 shadow-lg hover:opacity-90">
-                  Book Now
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-            </SignedIn>
+            </ClerkLoading>
+            <ClerkLoaded>
+              <SignedOut>
+                <Link href="/sign-up">
+                  <Button size="lg" className="gradient-primary text-white border-0 shadow-lg hover:opacity-90">
+                    Get Started
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </SignedOut>
+              <SignedIn>
+                <Link href="/bookings/new">
+                  <Button size="lg" className="gradient-primary text-white border-0 shadow-lg hover:opacity-90">
+                    Book Now
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </SignedIn>
+            </ClerkLoaded>
           </motion.div>
         </div>
       </section>
@@ -587,22 +632,32 @@ export default function HomePage() {
             Book your first test today — it takes less than a minute.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <SignedOut>
+            <ClerkLoading>
               <Link href="/sign-up">
                 <Button size="lg" className="gradient-accent text-white border-0 shadow-xl hover:opacity-90 text-base px-8 h-14 rounded-xl">
                   Get Started Free
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
-            </SignedOut>
-            <SignedIn>
-              <Link href="/bookings/new">
-                <Button size="lg" className="gradient-accent text-white border-0 shadow-xl hover:opacity-90 text-base px-8 h-14 rounded-xl">
-                  Book a Service
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
-            </SignedIn>
+            </ClerkLoading>
+            <ClerkLoaded>
+              <SignedOut>
+                <Link href="/sign-up">
+                  <Button size="lg" className="gradient-accent text-white border-0 shadow-xl hover:opacity-90 text-base px-8 h-14 rounded-xl">
+                    Get Started Free
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+              </SignedOut>
+              <SignedIn>
+                <Link href="/bookings/new">
+                  <Button size="lg" className="gradient-accent text-white border-0 shadow-xl hover:opacity-90 text-base px-8 h-14 rounded-xl">
+                    Book a Service
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+              </SignedIn>
+            </ClerkLoaded>
             <Link href="/engineer/login">
               <Button variant="outline" size="lg" className="bg-white/10 border-white/20 text-white hover:bg-white/20 text-base px-8 h-14 rounded-xl">
                 <Wrench className="mr-2 h-5 w-5" />
