@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getOrCreateUser } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { getEngineerDashboardData } from "@/lib/actions";
 import { PageHeader, StatCard, StatusBadge } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,94 +28,7 @@ export default async function EngineerDashboardPage() {
     redirect("/dashboard");
   }
 
-  // Default values
-  let stats = {
-    assignedJobs: 0,
-    inProgressJobs: 0,
-    completedToday: 0,
-    completedThisWeek: 0,
-  };
-  let todaysJobs: {
-    id: string;
-    status: string;
-    scheduledDate: Date;
-    slot: string;
-    service: { name: string };
-    site: { name: string; postcode: string };
-  }[] = [];
-  let availableJobs: typeof todaysJobs = [];
-
-  try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const weekStart = new Date(today);
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-
-    const [assignedJobs, inProgressJobs, completedToday, completedThisWeek, todaysJobsData, availableJobsData] =
-      await Promise.all([
-        db.booking.count({
-          where: {
-            engineerId: user.id,
-            status: { in: ["CONFIRMED", "IN_PROGRESS"] },
-          },
-        }),
-        db.booking.count({
-          where: { engineerId: user.id, status: "IN_PROGRESS" },
-        }),
-        db.booking.count({
-          where: {
-            engineerId: user.id,
-            status: "COMPLETED",
-            completedAt: { gte: today },
-          },
-        }),
-        db.booking.count({
-          where: {
-            engineerId: user.id,
-            status: "COMPLETED",
-            completedAt: { gte: weekStart },
-          },
-        }),
-        db.booking.findMany({
-          where: {
-            engineerId: user.id,
-            scheduledDate: { gte: today, lt: tomorrow },
-            status: { in: ["CONFIRMED", "IN_PROGRESS"] },
-          },
-          include: {
-            service: true,
-            site: true,
-          },
-          orderBy: { scheduledDate: "asc" },
-        }),
-        db.booking.findMany({
-          where: {
-            status: { in: ["PENDING", "CONFIRMED"] },
-            engineerId: null,
-          },
-          include: {
-            service: true,
-            site: true,
-          },
-          orderBy: { scheduledDate: "asc" },
-          take: 5,
-        }),
-      ]);
-
-    stats = {
-      assignedJobs,
-      inProgressJobs,
-      completedToday,
-      completedThisWeek,
-    };
-    todaysJobs = todaysJobsData;
-    availableJobs = availableJobsData;
-  } catch (error) {
-    console.error("Error fetching engineer dashboard data:", error);
-  }
+  const { stats, todaysJobs, availableJobs } = await getEngineerDashboardData();
 
   return (
     <div>

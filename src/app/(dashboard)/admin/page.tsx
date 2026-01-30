@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getOrCreateUser } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { getAdminDashboardData } from "@/lib/actions";
 import { PageHeader, StatCard, StatusBadge } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,73 +29,7 @@ export default async function AdminDashboardPage() {
     redirect("/dashboard");
   }
 
-  // Default values for graceful degradation
-  let stats = {
-    totalUsers: 0,
-    totalEngineers: 0,
-    totalBookings: 0,
-    pendingBookings: 0,
-    completedBookings: 0,
-    revenue: 0,
-  };
-  let recentBookings: {
-    id: string;
-    status: string;
-    scheduledDate: Date;
-    quotedPrice: number;
-    engineerId: string | null;
-    service: { name: string };
-    customer: { name: string };
-    site: { name: string };
-  }[] = [];
-  let unassignedBookings: typeof recentBookings = [];
-
-  // Fetch data with error handling
-  try {
-    const [
-      totalUsers,
-      totalEngineers,
-      totalBookings,
-      pendingBookings,
-      completedBookings,
-      revenueAgg,
-      bookings,
-    ] = await Promise.all([
-      db.user.count(),
-      db.user.count({ where: { role: "ENGINEER" } }),
-      db.booking.count(),
-      db.booking.count({ where: { status: { in: ["PENDING", "CONFIRMED"] } } }),
-      db.booking.count({ where: { status: "COMPLETED" } }),
-      db.booking.aggregate({
-        where: { status: "COMPLETED" },
-        _sum: { quotedPrice: true },
-      }),
-      db.booking.findMany({
-        include: {
-          customer: true,
-          site: true,
-          service: true,
-        },
-        orderBy: { createdAt: "desc" },
-        take: 10,
-      }),
-    ]);
-
-    stats = {
-      totalUsers,
-      totalEngineers,
-      totalBookings,
-      pendingBookings,
-      completedBookings,
-      revenue: revenueAgg._sum.quotedPrice || 0,
-    };
-    recentBookings = bookings.slice(0, 5);
-    unassignedBookings = bookings.filter(
-      (b) => b.status === "PENDING" && !b.engineerId
-    );
-  } catch (error) {
-    console.error("Error fetching admin dashboard data:", error);
-  }
+  const { stats, recentBookings, unassignedBookings } = await getAdminDashboardData();
 
   return (
     <div>

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getOrCreateUser } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { getCustomerDashboardData } from "@/lib/actions";
 import { PageHeader, StatCard, StatusBadge, EmptyState } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,49 +32,7 @@ export default async function DashboardPage() {
     redirect("/admin");
   }
 
-  // Default values
-  let stats = { totalBookings: 0, pendingBookings: 0, completedBookings: 0, totalSites: 0 };
-  let recentBookings: {
-    id: string;
-    status: string;
-    scheduledDate: Date;
-    slot: string;
-    quotedPrice: number;
-    site: { name: string };
-    service: { name: string };
-  }[] = [];
-  let upcomingBookings: typeof recentBookings = [];
-
-  try {
-    const [totalBookings, pendingBookings, completedBookings, totalSites, bookings] =
-      await Promise.all([
-        db.booking.count({ where: { customerId: user.id } }),
-        db.booking.count({
-          where: { customerId: user.id, status: { in: ["PENDING", "CONFIRMED"] } },
-        }),
-        db.booking.count({ where: { customerId: user.id, status: "COMPLETED" } }),
-        db.site.count({ where: { userId: user.id } }),
-        db.booking.findMany({
-          where: { customerId: user.id },
-          include: {
-            site: true,
-            service: true,
-          },
-          orderBy: { createdAt: "desc" },
-          take: 10,
-        }),
-      ]);
-
-    stats = { totalBookings, pendingBookings, completedBookings, totalSites };
-    recentBookings = bookings.slice(0, 5);
-    upcomingBookings = bookings.filter(
-      (b) =>
-        (b.status === "PENDING" || b.status === "CONFIRMED") &&
-        new Date(b.scheduledDate) >= new Date()
-    );
-  } catch (error) {
-    console.error("Error fetching customer dashboard data:", error);
-  }
+  const { stats, recentBookings, upcomingBookings } = await getCustomerDashboardData();
 
   return (
     <div>
