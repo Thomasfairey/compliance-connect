@@ -64,20 +64,15 @@ async function getCustomerDashboardData(userId: string) {
 }
 
 export default async function DashboardPage() {
-  // Get auth with minimal calls
-  let user;
-  try {
-    const { userId } = await auth();
-    if (!userId) {
-      redirect("/sign-in");
-    }
-    user = await db.user.findUnique({
-      where: { clerkId: userId },
-    });
-  } catch (error) {
-    console.error("Auth error:", error);
+  // Get auth - don't wrap redirect() in try-catch as it throws a special Next.js error
+  const { userId } = await auth();
+  if (!userId) {
     redirect("/sign-in");
   }
+
+  const user = await db.user.findUnique({
+    where: { clerkId: userId },
+  });
 
   if (!user) {
     redirect("/sign-in");
