@@ -20,8 +20,21 @@ test("debug endpoint after login", async ({ page }) => {
   // Wait for redirect to dashboard
   await page.waitForURL(/dashboard/, { timeout: 20000 });
 
+  // Wait a moment for page to fully render
+  await page.waitForTimeout(3000);
+
   // Take a screenshot of the current page (dashboard)
-  await page.screenshot({ path: "test-results/dashboard-state.png" });
+  await page.screenshot({ path: "test-results/dashboard-state.png", fullPage: true });
+
+  // Check for error or success
+  const hasError = await page.locator("text=Something went wrong").isVisible().catch(() => false);
+  const hasWelcome = await page.locator("text=Welcome").isVisible().catch(() => false);
+
+  console.log("=== DASHBOARD STATE ===");
+  console.log("Has error:", hasError);
+  console.log("Has welcome:", hasWelcome);
+  console.log("Current URL:", page.url());
+  console.log("=======================");
 
   // Now hit the debug endpoint
   const response = await page.goto("/api/debug");
