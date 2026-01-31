@@ -37,7 +37,7 @@ export async function GET() {
           where: { clerkId: userId },
         });
         debug.userFound = !!user;
-        debug.userData = user ? { id: user.id, role: user.role, email: user.email } : null;
+        debug.userData = user ? { id: user.id, role: user.role, email: user.email, name: user.name } : null;
 
         // Test customer data queries (same as dashboard)
         if (user) {

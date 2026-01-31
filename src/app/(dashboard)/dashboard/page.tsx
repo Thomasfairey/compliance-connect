@@ -106,7 +106,7 @@ export default async function DashboardPage() {
   return (
     <div>
       <PageHeader
-        title={`Welcome back, ${user.name.split(" ")[0]}`}
+        title={`Welcome back, ${user.name?.split(" ")[0] || "there"}`}
         description="Here's an overview of your compliance testing."
         action={
           <Link href="/bookings/new">
