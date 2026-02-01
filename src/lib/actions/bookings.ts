@@ -389,13 +389,6 @@ export async function createBooking(
     const user = await requireUser();
     const validated = bookingSchema.parse(input);
 
-    console.log("[createBooking] Starting booking creation:", {
-      userId: user.id,
-      userEmail: user.email,
-      siteId: validated.siteId,
-      serviceId: validated.serviceId,
-    });
-
     // Idempotency check - prevent duplicate bookings within 60 seconds
     const recentDuplicate = await db.booking.findFirst({
       where: {
@@ -418,7 +411,6 @@ export async function createBooking(
     });
 
     if (recentDuplicate) {
-      console.log("[createBooking] Found duplicate booking, returning existing:", recentDuplicate.id);
       // Return the existing booking instead of creating a duplicate
       return { success: true, data: recentDuplicate };
     }
@@ -428,25 +420,7 @@ export async function createBooking(
       where: { id: validated.siteId, userId: user.id },
     });
 
-    console.log("[createBooking] Site lookup result:", {
-      found: !!site,
-      siteId: validated.siteId,
-      userId: user.id,
-    });
-
     if (!site) {
-      // Additional debug: check if site exists at all
-      const siteExists = await db.site.findUnique({
-        where: { id: validated.siteId },
-        select: { id: true, userId: true },
-      });
-      console.log("[createBooking] Site exists check:", {
-        siteId: validated.siteId,
-        exists: !!siteExists,
-        siteUserId: siteExists?.userId,
-        requestUserId: user.id,
-        userIdMatch: siteExists?.userId === user.id,
-      });
       return { success: false, error: "Site not found" };
     }
 

@@ -9,7 +9,6 @@ const isPublicRoute = createRouteMatcher([
   "/api/webhooks(.*)",
   "/api/auth(.*)",
   "/api/engineer/calendar/ical(.*)", // iCal feed is public (uses userId in URL)
-  "/api/debug(.*)", // Debug endpoints - REMOVE IN PRODUCTION
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
