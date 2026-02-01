@@ -8,6 +8,7 @@ const isPublicRoute = createRouteMatcher([
   "/engineer/signup(.*)",
   "/api/webhooks(.*)",
   "/api/auth(.*)",
+  "/api/engineer/calendar/ical(.*)", // iCal feed is public (uses userId in URL)
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
@@ -20,7 +21,8 @@ export default clerkMiddleware(async (auth, req) => {
 
 export const config = {
   matcher: [
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    // Exclude static files and PWA assets from middleware
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest|json)).*)",
     "/(api|trpc)(.*)",
   ],
 };
