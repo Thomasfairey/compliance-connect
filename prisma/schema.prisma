@@ -68,6 +68,9 @@ model User {
   pushSubscriptions PushSubscription[]
   notifications     Notification[]
 
+  // Scheduling V2: Customer metrics for LTV scoring
+  customerMetrics   CustomerMetrics?
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -759,4 +762,142 @@ model BookingStatusLog {
 
   @@index([bookingId])
   @@index([createdAt])
+}
+
+// =====================
+// FEATURE 8: SCHEDULING INTELLIGENCE V2
+// =====================
+
+// Customer Metrics for LTV and reliability scoring
+model CustomerMetrics {
+  id                  String    @id @default(cuid())
+  userId              String    @unique
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Booking counts
+  totalBookings       Int       @default(0)
+  completedBookings   Int       @default(0)
+  cancelledBookings   Int       @default(0)
+  declinedBookings    Int       @default(0)
+
+  // Revenue metrics
+  totalRevenue        Float     @default(0)
+  averageOrderValue   Float     @default(0)
+
+  // Timeline
+  firstBookingAt      DateTime?
+  lastBookingAt       DateTime?
+  daysSinceLastBooking Int?
+
+  // Derived scores (0-100)
+  ltvScore            Float     @default(50)   // Lifetime value score
+  reliabilityScore    Float     @default(50)   // Based on cancellation rate
+  frequencyScore      Float     @default(50)   // How often they book
+
+  // Recalculation tracking
+  calculatedAt        DateTime  @default(now())
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([ltvScore])
+  @@index([reliabilityScore])
+}
+
+// Extensible pricing rules - stored in DB, not hardcoded
+model PricingRule {
+  id          String   @id @default(cuid())
+  name        String   // e.g., "Cluster Discount", "Urgency Premium"
+  slug        String   @unique
+  description String?
+
+  // Rule type determines calculation logic
+  type        String   // 'cluster', 'urgency', 'offpeak', 'bundle', 'flex', 'loyalty'
+
+  // Configuration as JSON for flexibility
+  // Examples:
+  // cluster: { radiusKm: 5, minJobs: 2, discountPercent: 10 }
+  // urgency: { daysThreshold: 2, premiumPercent: 15 }
+  // offpeak: { days: [1, 2, 3], discountPercent: 5 }
+  config      Json
+
+  // Control
+  enabled     Boolean  @default(true)
+  priority    Int      @default(0)  // Higher = applied later (can override)
+
+  // Audit
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([enabled])
+  @@index([type])
+}
+
+// Detailed scoring log for V2 allocation decisions
+model AllocationScoreLog {
+  id              String   @id @default(cuid())
+  bookingId       String
+  engineerId      String
+
+  // Composite scores
+  customerScore   Float
+  engineerScore   Float
+  platformScore   Float
+  compositeScore  Float
+
+  // Weights used
+  customerWeight  Float    @default(0.40)
+  engineerWeight  Float    @default(0.30)
+  platformWeight  Float    @default(0.30)
+
+  // Individual factor scores (JSON for flexibility)
+  // { factorName: { rawValue, normalizedScore, weight, contribution } }
+  factors         Json
+
+  // Was this the selected allocation?
+  wasSelected     Boolean  @default(false)
+
+  // Comparison with V1 (for shadow mode)
+  v1Score         Float?
+  v1Rank          Int?
+  v2Rank          Int?
+
+  createdAt       DateTime @default(now())
+
+  @@index([bookingId])
+  @@index([engineerId])
+  @@index([wasSelected])
+  @@index([createdAt])
+}
+
+// Area intelligence for network effect scoring
+model AreaIntelligence {
+  id                  String   @id @default(cuid())
+  postcodeDistrict    String   @unique  // e.g., "SW1A", "EC2M"
+
+  // Business density estimates
+  estimatedBusinesses Int      @default(0)
+  businessDensityTier String   @default("unknown") // 'high', 'medium', 'low', 'unknown'
+
+  // Our penetration
+  totalCustomers      Int      @default(0)
+  totalBookings       Int      @default(0)
+  penetrationRate     Float    @default(0)
+
+  // Historical performance
+  avgJobValue         Float?
+  cancellationRate    Float?
+
+  // Categorization
+  primaryIndustry     String?  // 'office', 'retail', 'mixed', etc.
+  repeatFactor        Float    @default(1.0)  // Expected repeat booking rate
+
+  // Recalculation tracking
+  calculatedAt        DateTime @default(now())
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([businessDensityTier])
+  @@index([penetrationRate])
 }

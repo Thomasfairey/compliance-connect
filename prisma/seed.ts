@@ -93,8 +93,12 @@ async function main() {
   await prisma.notification.deleteMany({});
   await prisma.pushSubscription.deleteMany({});
   await prisma.allocationLog.deleteMany({});
+  await prisma.allocationScoreLog.deleteMany({});
   await prisma.siteProfile.deleteMany({});
   await prisma.site.deleteMany({});
+  await prisma.customerMetrics.deleteMany({});
+  await prisma.pricingRule.deleteMany({});
+  await prisma.areaIntelligence.deleteMany({});
 
   // Delete seed users
   await prisma.user.deleteMany({
@@ -242,6 +246,97 @@ async function main() {
   ]);
 
   console.log(`✅ Created ${services.length} services\n`);
+
+  // =====================
+  // CREATE PRICING RULES (Scheduling V2)
+  // =====================
+  console.log("💰 Creating pricing rules...");
+
+  const pricingRules = await Promise.all([
+    prisma.pricingRule.create({
+      data: {
+        name: "Cluster Discount",
+        slug: "cluster-discount",
+        description: "Discount when engineer already has nearby jobs on the same day",
+        type: "cluster",
+        enabled: true,
+        priority: 1,
+        config: {
+          cluster: {
+            radiusKm: 5,
+            minJobs: 1,
+            discountPercent: 10,
+          },
+        },
+      },
+    }),
+    prisma.pricingRule.create({
+      data: {
+        name: "Urgency Premium",
+        slug: "urgency-premium",
+        description: "Premium for last-minute bookings (less than 2 days notice)",
+        type: "urgency",
+        enabled: true,
+        priority: 2,
+        config: {
+          urgency: {
+            daysThreshold: 2,
+            premiumPercent: 15,
+          },
+        },
+      },
+    }),
+    prisma.pricingRule.create({
+      data: {
+        name: "Off-Peak Discount",
+        slug: "offpeak-discount",
+        description: "Discount for Monday and Tuesday bookings (typically slower days)",
+        type: "offpeak",
+        enabled: true,
+        priority: 3,
+        config: {
+          offpeak: {
+            days: [1, 2], // Monday, Tuesday
+            discountPercent: 5,
+          },
+        },
+      },
+    }),
+    prisma.pricingRule.create({
+      data: {
+        name: "Flexibility Discount",
+        slug: "flex-discount",
+        description: "Discount for customers flexible on scheduling dates",
+        type: "flex",
+        enabled: true,
+        priority: 4,
+        config: {
+          flex: {
+            daysFlexible: 7,
+            discountPercent: 7,
+          },
+        },
+      },
+    }),
+    prisma.pricingRule.create({
+      data: {
+        name: "Loyalty Discount",
+        slug: "loyalty-discount",
+        description: "Discount for repeat customers with 5+ completed bookings",
+        type: "loyalty",
+        enabled: true,
+        priority: 5,
+        config: {
+          loyalty: {
+            minBookings: 5,
+            discountPercent: 5,
+          },
+        },
+      },
+    }),
+  ]);
+
+  console.log(`✅ Created ${pricingRules.length} pricing rules\n`);
 
   // =====================
   // CREATE SERVICE BUNDLES
@@ -618,17 +713,62 @@ async function main() {
   console.log(`✅ Created ${remindersCreated} compliance reminders\n`);
 
   // =====================
+  // CREATE CUSTOMER METRICS (Scheduling V2)
+  // =====================
+  console.log("📈 Calculating customer metrics...");
+
+  let metricsCreated = 0;
+  for (const customer of customers) {
+    // Get booking stats for this customer
+    const customerBookings = await prisma.booking.findMany({
+      where: { customerId: customer.id },
+      select: { status: true, quotedPrice: true, createdAt: true, completedAt: true },
+    });
+
+    const completed = customerBookings.filter(b => b.status === "COMPLETED");
+    const cancelled = customerBookings.filter(b => b.status === "CANCELLED");
+    const totalRevenue = completed.reduce((sum, b) => sum + (b.quotedPrice ?? 0), 0);
+
+    const revenueScore = Math.min(100, (totalRevenue / 10000) * 100);
+    const frequencyScore = Math.min(100, completed.length * 10);
+    const cancellationRate = customerBookings.length > 0 ? cancelled.length / customerBookings.length : 0;
+    const reliabilityScore = Math.max(0, 100 - cancellationRate * 200);
+    const ltvScore = revenueScore * 0.4 + frequencyScore * 0.3 + reliabilityScore * 0.3;
+
+    await prisma.customerMetrics.create({
+      data: {
+        userId: customer.id,
+        totalBookings: customerBookings.length,
+        completedBookings: completed.length,
+        cancelledBookings: cancelled.length,
+        totalRevenue,
+        averageOrderValue: completed.length > 0 ? totalRevenue / completed.length : 0,
+        firstBookingAt: customerBookings[0]?.createdAt,
+        lastBookingAt: completed[completed.length - 1]?.completedAt,
+        ltvScore,
+        reliabilityScore,
+        frequencyScore,
+      },
+    });
+    metricsCreated++;
+  }
+
+  console.log(`✅ Created ${metricsCreated} customer metrics\n`);
+
+  // =====================
   // SUMMARY
   // =====================
   console.log("═".repeat(50));
   console.log("📊 SEED SUMMARY");
   console.log("═".repeat(50));
-  console.log(`Services:           ${services.length}`);
-  console.log(`Service Bundles:    ${bundles.length}`);
-  console.log(`Engineers:          ${engineers.length}`);
-  console.log(`Customers:          ${customers.length}`);
-  console.log(`Sites:              ${allSites.length}`);
-  console.log(`Bookings:           ${bookings.length}`);
+  console.log(`Services:             ${services.length}`);
+  console.log(`Pricing Rules:        ${pricingRules.length}`);
+  console.log(`Service Bundles:      ${bundles.length}`);
+  console.log(`Engineers:            ${engineers.length}`);
+  console.log(`Customers:            ${customers.length}`);
+  console.log(`Customer Metrics:     ${metricsCreated}`);
+  console.log(`Sites:                ${allSites.length}`);
+  console.log(`Bookings:             ${bookings.length}`);
   console.log(`Compliance Reminders: ${remindersCreated}`);
   console.log("═".repeat(50));
   console.log("\n✅ Database seeded successfully!");
