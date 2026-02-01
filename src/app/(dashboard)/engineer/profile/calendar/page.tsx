@@ -1,19 +1,19 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getOrCreateUser } from "@/lib/auth";
+import { db } from "@/lib/db";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { BottomNav } from "@/components/engineer/mobile/bottom-nav";
+import { CalendarSyncClient } from "./client";
 import {
   ArrowLeft,
   Calendar,
-  RefreshCw,
-  Copy,
   Check,
-  ExternalLink,
+  AlertCircle,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -44,18 +44,31 @@ function OutlookIcon() {
   );
 }
 
-export default async function CalendarSyncPage() {
+export default async function CalendarSyncPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ success?: string; error?: string }>;
+}) {
   const user = await getOrCreateUser();
+  const params = await searchParams;
 
   if (user.role !== "ENGINEER" && user.role !== "ADMIN") {
     redirect("/dashboard");
   }
 
-  // For now, we'll show the UI without actual sync functionality
-  // The actual OAuth integration would require additional setup
-  const isGoogleConnected = false;
-  const isOutlookConnected = false;
-  const icalFeedEnabled = true;
+  // Get engineer profile with calendar syncs
+  const profile = await db.engineerProfile.findUnique({
+    where: { userId: user.id },
+    include: {
+      calendarSyncs: true,
+    },
+  });
+
+  const googleSync = profile?.calendarSyncs.find((s) => s.provider === "google");
+  const outlookSync = profile?.calendarSyncs.find((s) => s.provider === "outlook");
+
+  const isGoogleConnected = !!googleSync && googleSync.syncEnabled;
+  const isOutlookConnected = !!outlookSync && outlookSync.syncEnabled;
   const icalFeedUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://www.complianceod.co.uk"}/api/engineer/calendar/ical/${user.id}`;
 
   return (
@@ -71,6 +84,28 @@ export default async function CalendarSyncPage() {
       </header>
 
       <div className="p-4 space-y-4">
+        {/* Success/Error Messages */}
+        {params.success === "google" && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
+            <Check className="w-5 h-5 text-green-600" />
+            <p className="text-sm text-green-800">Google Calendar connected successfully!</p>
+          </div>
+        )}
+        {params.success === "outlook" && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
+            <Check className="w-5 h-5 text-green-600" />
+            <p className="text-sm text-green-800">Outlook Calendar connected successfully!</p>
+          </div>
+        )}
+        {params.error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600" />
+            <p className="text-sm text-red-800">
+              Failed to connect calendar. Please try again.
+            </p>
+          </div>
+        )}
+
         {/* Info Banner */}
         <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
           <p className="text-sm text-blue-800">
@@ -98,30 +133,17 @@ export default async function CalendarSyncPage() {
           </CardHeader>
           <CardContent>
             {isGoogleConnected ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Synced to</span>
-                  <span className="font-medium">engineer@gmail.com</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Last sync</span>
-                  <span className="text-gray-500">2 hours ago</span>
-                </div>
-                <div className="flex gap-2 pt-2">
-                  <Button variant="outline" size="sm" className="flex-1">
-                    <RefreshCw className="w-4 h-4 mr-1" />
-                    Sync Now
-                  </Button>
-                  <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
-                    Disconnect
-                  </Button>
-                </div>
-              </div>
+              <CalendarSyncClient
+                provider="google"
+                lastSyncedAt={googleSync?.lastSyncedAt?.toISOString()}
+              />
             ) : (
-              <Button className="w-full">
-                <GoogleIcon />
-                <span className="ml-2">Connect Google Calendar</span>
-              </Button>
+              <Link href="/api/engineer/calendar/google">
+                <Button className="w-full">
+                  <GoogleIcon />
+                  <span className="ml-2">Connect Google Calendar</span>
+                </Button>
+              </Link>
             )}
           </CardContent>
         </Card>
@@ -145,10 +167,19 @@ export default async function CalendarSyncPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <Button className="w-full" variant="outline">
-              <OutlookIcon />
-              <span className="ml-2">Connect Outlook</span>
-            </Button>
+            {isOutlookConnected ? (
+              <CalendarSyncClient
+                provider="outlook"
+                lastSyncedAt={outlookSync?.lastSyncedAt?.toISOString()}
+              />
+            ) : (
+              <Link href="/api/engineer/calendar/outlook">
+                <Button className="w-full" variant="outline">
+                  <OutlookIcon />
+                  <span className="ml-2">Connect Outlook</span>
+                </Button>
+              </Link>
+            )}
           </CardContent>
         </Card>
 
@@ -166,45 +197,7 @@ export default async function CalendarSyncPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="ical-enabled">Enable iCal feed</Label>
-                <Switch id="ical-enabled" defaultChecked={icalFeedEnabled} />
-              </div>
-
-              {icalFeedEnabled && (
-                <>
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={icalFeedUrl}
-                        readOnly
-                        className="flex-1 text-xs bg-white border rounded px-2 py-1.5 font-mono truncate"
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => navigator.clipboard.writeText(icalFeedUrl)}
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Copy this URL and add it to your calendar app as a subscription.
-                    </p>
-                  </div>
-
-                  <a
-                    href={`webcal://${icalFeedUrl.replace("https://", "").replace("http://", "")}`}
-                    className="flex items-center justify-center gap-2 w-full py-2 text-sm text-blue-600 bg-blue-50 rounded-lg"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    Open in Calendar App
-                  </a>
-                </>
-              )}
-            </div>
+            <CalendarSyncClient provider="ical" icalFeedUrl={icalFeedUrl} />
           </CardContent>
         </Card>
 

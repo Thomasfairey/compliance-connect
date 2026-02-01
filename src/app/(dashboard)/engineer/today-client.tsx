@@ -19,6 +19,7 @@ import {
 } from "@/components/engineer/mobile/current-job-card";
 import { JobTimeline } from "@/components/engineer/mobile/job-timeline";
 import { toast } from "sonner";
+import { cacheJobsOffline, queueOfflineRequest, CachedJob } from "@/lib/offline";
 
 interface TodayJob {
   id: string;
@@ -51,6 +52,25 @@ export function TodayViewClient({ userName, jobs: initialJobs, stats }: TodayVie
   const router = useRouter();
   const [jobs, setJobs] = useState(initialJobs);
   const [offline, setOffline] = useState(false);
+
+  // Cache jobs for offline access
+  useEffect(() => {
+    const jobsToCache: CachedJob[] = initialJobs.map((job) => ({
+      id: job.id,
+      scheduledDate: new Date().toISOString(),
+      slot: job.slot,
+      status: job.status,
+      customerName: job.customerName,
+      serviceName: job.services.join(", "),
+      postcode: job.postcode,
+      address: job.address,
+      phone: job.contactPhone,
+      notes: job.accessNotes,
+      estimatedDuration: job.estimatedDuration,
+    }));
+
+    cacheJobsOffline(jobsToCache).catch(console.error);
+  }, [initialJobs]);
 
   // Offline detection
   useEffect(() => {
@@ -94,6 +114,30 @@ export function TodayViewClient({ userName, jobs: initialJobs, stats }: TodayVie
     const job = currentJob || nextJob;
     if (!job) return;
 
+    // If offline, queue the request
+    if (offline) {
+      try {
+        await queueOfflineRequest(
+          `/api/engineer/jobs/${job.id}/status`,
+          "POST",
+          { action }
+        );
+
+        // Optimistically update local state
+        const newStatus = getNewStatus(action);
+        if (newStatus) {
+          setJobs((prev) =>
+            prev.map((j) => (j.id === job.id ? { ...j, status: newStatus } : j))
+          );
+        }
+
+        toast.info("Saved offline - will sync when connected");
+      } catch (error) {
+        toast.error("Failed to save action");
+      }
+      return;
+    }
+
     try {
       const response = await fetch(`/api/engineer/jobs/${job.id}/status`, {
         method: "POST",
@@ -111,11 +155,24 @@ export function TodayViewClient({ userName, jobs: initialJobs, stats }: TodayVie
       toast.success(getSuccessMessage(action));
       router.refresh();
     } catch (error) {
-      if (offline) {
-        toast.info("Saved offline - will sync when connected");
-      } else {
-        throw error;
-      }
+      toast.error("Failed to update status");
+    }
+  };
+
+  const getNewStatus = (action: string): string | null => {
+    switch (action) {
+      case "ACCEPT":
+        return "CONFIRMED";
+      case "START_TRAVEL":
+        return "EN_ROUTE";
+      case "ARRIVE":
+        return "ON_SITE";
+      case "START_WORK":
+        return "IN_PROGRESS";
+      case "COMPLETE":
+        return "COMPLETED";
+      default:
+        return null;
     }
   };
 
