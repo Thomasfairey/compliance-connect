@@ -10,10 +10,18 @@ import type { CreateSiteInput } from "@/types";
 export async function getUserSites(): Promise<Site[]> {
   const user = await requireUser();
 
+  console.log("[getUserSites] Fetching sites for user:", {
+    userId: user.id,
+    email: user.email,
+    clerkId: user.clerkId,
+  });
+
   const sites = await db.site.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "desc" },
   });
+
+  console.log("[getUserSites] Found sites:", sites.length);
 
   return sites;
 }
@@ -38,6 +46,13 @@ export async function createSite(
     const user = await requireUser();
     const validated = siteSchema.parse(input);
 
+    console.log("[createSite] Creating site for user:", {
+      userId: user.id,
+      email: user.email,
+      clerkId: user.clerkId,
+      siteName: validated.name,
+    });
+
     const site = await db.site.create({
       data: {
         ...validated,
@@ -45,12 +60,17 @@ export async function createSite(
       },
     });
 
+    console.log("[createSite] Site created successfully:", {
+      siteId: site.id,
+      userId: site.userId,
+    });
+
     revalidatePath("/dashboard");
     revalidatePath("/sites");
 
     return { success: true, data: site };
   } catch (error) {
-    console.error("Error creating site:", error);
+    console.error("[createSite] Error creating site:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to create site",

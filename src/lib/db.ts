@@ -8,12 +8,20 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 // Create pool with proper SSL config for production
+// Use more conservative settings for serverless
 const pool = globalForPrisma.pool ?? new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
-  max: 10, // Limit connections in serverless
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
+  max: 5, // Reduced for serverless (was 10)
+  min: 0, // Allow pool to shrink to 0
+  idleTimeoutMillis: 10000, // Close idle connections faster (was 30000)
+  connectionTimeoutMillis: 5000, // Fail faster on connection issues (was 10000)
+  allowExitOnIdle: true, // Allow process to exit when pool is idle
+});
+
+// Handle pool errors gracefully
+pool.on("error", (err) => {
+  console.error("[DB Pool] Unexpected error on idle client:", err);
 });
 
 const adapter = new PrismaPg(pool);

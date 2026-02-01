@@ -46,6 +46,8 @@ export async function getOrCreateUser(): Promise<User> {
 
   const email = clerkUser.emailAddresses[0]?.emailAddress || "";
 
+  console.log("[getOrCreateUser] Looking up user:", { clerkId: userId, email });
+
   try {
     // First try to find by clerkId
     let user = await db.user.findUnique({
@@ -53,6 +55,7 @@ export async function getOrCreateUser(): Promise<User> {
     });
 
     if (user) {
+      console.log("[getOrCreateUser] Found user by clerkId:", { id: user.id, email: user.email });
       return user;
     }
 
@@ -64,6 +67,11 @@ export async function getOrCreateUser(): Promise<User> {
     if (existingUserByEmail) {
       // If user exists with different clerkId, update it to use the new Clerk account
       // This handles cases where Clerk was reset or user was migrated
+      console.log("[getOrCreateUser] Found user by email, updating clerkId:", {
+        id: existingUserByEmail.id,
+        oldClerkId: existingUserByEmail.clerkId,
+        newClerkId: userId,
+      });
       user = await db.user.update({
         where: { id: existingUserByEmail.id },
         data: {
@@ -76,6 +84,7 @@ export async function getOrCreateUser(): Promise<User> {
     }
 
     // Create a new user
+    console.log("[getOrCreateUser] Creating new user:", { clerkId: userId, email });
     user = await db.user.create({
       data: {
         clerkId: userId,
@@ -85,6 +94,7 @@ export async function getOrCreateUser(): Promise<User> {
       },
     });
 
+    console.log("[getOrCreateUser] Created new user:", { id: user.id });
     return user;
   } catch (error) {
     // Log the actual error for debugging
