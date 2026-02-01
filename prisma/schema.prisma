@@ -16,11 +16,15 @@ enum Role {
 }
 
 enum BookingStatus {
-  PENDING
-  CONFIRMED
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
+  PENDING         // Created, awaiting engineer assignment
+  CONFIRMED       // Engineer assigned, job accepted
+  EN_ROUTE        // Engineer traveling to site
+  ON_SITE         // Engineer arrived at site
+  IN_PROGRESS     // Work in progress
+  COMPLETED       // Job finished successfully
+  CANCELLED       // Job cancelled
+  DECLINED        // Engineer declined the job
+  REQUIRES_REVISIT // Needs another visit to complete
 }
 
 enum EngineerStatus {
@@ -28,6 +32,13 @@ enum EngineerStatus {
   APPROVED
   SUSPENDED
   REJECTED
+}
+
+enum EngineerType {
+  PAT_TESTER      // 45p per test
+  ELECTRICIAN     // 40% of labour
+  CONSULTANT      // Day rate (£400)
+  GENERAL
 }
 
 model User {
@@ -88,13 +99,20 @@ model EngineerProfile {
   calendarSyncs   CalendarSync[]
   availability    EngineerAvailability[]
 
-  // Rates
+  // Rates and compensation
   dayRate         Float?
+  engineerType    EngineerType   @default(GENERAL)
+  testRate        Float?         @default(0.45)  // For PAT testers: £ per test
+  labourPercentage Float?        @default(0.40)  // For electricians: % of labour
+
+  // Relations for compensation tracking
+  patTestLogs     PATTestLog[]
 
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
   @@index([status])
+  @@index([engineerType])
 }
 
 model EngineerQualification {
@@ -242,6 +260,7 @@ model Service {
   bookings        Booking[]
   competencies    EngineerCompetency[]
   bundleItems     BundleItem[]
+  reportTemplates ReportTemplate[]
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -274,22 +293,44 @@ model Booking {
   discountPercent Float       @default(0)
   originalPrice   Float?
 
+  // Provisional booking support
+  isProvisional     Boolean     @default(false)
+  provisionalUntil  DateTime?   // Date until booking can be shifted
+  confirmedAt       DateTime?   // When provisional became confirmed
+
   engineerId    String?
   engineer      User?         @relation("EngineerBookings", fields: [engineerId], references: [id])
 
   // Additional notes from customer
   notes         String?
 
-  // Execution Data
-  startedAt     DateTime?
-  completedAt   DateTime?
+  // Execution Timestamps
+  acceptedAt    DateTime?   // When engineer accepted
+  enRouteAt     DateTime?   // When engineer started traveling
+  arrivedAt     DateTime?   // When engineer arrived on site
+  startedAt     DateTime?   // When work began
+  completedAt   DateTime?   // When job finished
   certificateUrl String?
+
+  // If declined or requires revisit
+  declinedAt    DateTime?
+  declinedReason String?
+  revisitReason String?
 
   // Engineer uploaded documents
   engineerNotes String?
   uploadedDocsUrl String?
 
+  // Customer signature on completion
+  customerSignatureUrl String?
+  customerSignedBy     String?
+  customerSignedAt     DateTime?
+
   assets        Asset[]
+  evidence      JobEvidence[]
+  statusLogs    BookingStatusLog[]
+  patTestLog    PATTestLog?
+  reports       GeneratedReport[]
 
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -299,6 +340,7 @@ model Booking {
   @@index([status])
   @@index([scheduledDate])
   @@index([siteId])
+  @@index([isProvisional])
 }
 
 model Asset {
@@ -313,7 +355,30 @@ model Asset {
   imageUrl    String?
   testedAt    DateTime @default(now())
 
+  evidence    JobEvidence[]
+
   @@index([bookingId])
+}
+
+model JobEvidence {
+  id          String   @id @default(cuid())
+  bookingId   String
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  assetId     String?
+  asset       Asset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  type        String   // "PHOTO" | "SIGNATURE" | "DOCUMENT" | "TEST_RESULT"
+  fileUrl     String
+  fileName    String
+  mimeType    String
+  description String?
+
+  uploadedBy  String
+  uploadedAt  DateTime @default(now())
+
+  @@index([bookingId])
+  @@index([assetId])
+  @@index([type])
 }
 
 // =====================
@@ -599,4 +664,99 @@ model Notification {
 
   @@index([userId])
   @@index([readAt])
+}
+
+// =====================
+// FEATURE 6: PAT TEST LOGGING & COMPENSATION
+// =====================
+
+model PATTestLog {
+  id              String           @id @default(cuid())
+  bookingId       String           @unique
+  booking         Booking          @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  engineerProfileId String
+  engineerProfile   EngineerProfile @relation(fields: [engineerProfileId], references: [id], onDelete: Cascade)
+
+  itemsTested     Int
+  ratePerTest     Float            @default(0.45)  // £0.45 per test
+  totalEarnings   Float                            // itemsTested * ratePerTest
+
+  loggedAt        DateTime         @default(now())
+  approvedAt      DateTime?
+  approvedBy      String?          // Admin user ID
+
+  notes           String?
+
+  @@index([engineerProfileId])
+  @@index([loggedAt])
+}
+
+// =====================
+// FEATURE 7: REPORT TEMPLATES & GENERATION
+// =====================
+
+model ReportTemplate {
+  id              String    @id @default(cuid())
+  name            String    // e.g., "Fire Risk Assessment Report"
+  slug            String    @unique
+
+  serviceId       String
+  service         Service   @relation(fields: [serviceId], references: [id])
+
+  // Template structure
+  content         String    @db.Text    // Markdown/HTML template
+  sections        Json                  // Array of section definitions
+  fieldMappings   Json                  // Maps template fields to booking/asset data
+
+  isActive        Boolean   @default(true)
+  sortOrder       Int       @default(0)
+
+  reports         GeneratedReport[]
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([serviceId])
+}
+
+model GeneratedReport {
+  id              String          @id @default(cuid())
+  bookingId       String
+  booking         Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  templateId      String
+  template        ReportTemplate  @relation(fields: [templateId], references: [id])
+
+  // Generated content
+  content         String          @db.Text
+  pdfUrl          String?
+
+  // Metadata
+  generatedBy     String?         // Engineer user ID
+  generatedAt     DateTime        @default(now())
+  finalizedAt     DateTime?
+
+  @@index([bookingId])
+  @@index([templateId])
+}
+
+// =====================
+// BOOKING STATUS HISTORY
+// =====================
+
+model BookingStatusLog {
+  id          String         @id @default(cuid())
+  bookingId   String
+  booking     Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  fromStatus  BookingStatus?
+  toStatus    BookingStatus
+  changedBy   String         // User ID who made the change
+  reason      String?        // Optional reason for status change
+
+  createdAt   DateTime       @default(now())
+
+  @@index([bookingId])
+  @@index([createdAt])
 }

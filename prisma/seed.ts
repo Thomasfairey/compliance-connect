@@ -1,8 +1,8 @@
 import "dotenv/config";
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@prisma/client";
-import { addDays, addWeeks, startOfDay } from "date-fns";
+import { PrismaClient, BuildingType, IndustryType, BookingStatus, EngineerType } from "@prisma/client";
+import { addDays, subDays, startOfDay } from "date-fns";
 
 const pool = new Pool({
   connectionString: process.env.DIRECT_URL || process.env.DATABASE_URL,
@@ -24,14 +24,96 @@ function generateBookingRef() {
   return result;
 }
 
-async function main() {
-  console.log("Seeding database with comprehensive data...");
+function randomElement<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
 
-  // Create Services
+function randomInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+// UK Cities with realistic postcodes
+const UK_REGIONS = [
+  // London - 10 customers
+  { city: "London", postcodes: ["SW1A 1AA", "EC2A 1NT", "W1D 3QF", "SE1 9SG", "NW1 6XE", "E1 6AN", "N1 9GU", "WC2N 5DU", "W2 1JB", "SW3 1AA"] },
+  // Manchester - 3 customers
+  { city: "Manchester", postcodes: ["M1 2WD", "M2 5DB", "M4 1HQ"] },
+  // Birmingham - 3 customers
+  { city: "Birmingham", postcodes: ["B1 1RS", "B2 4QA", "B3 3HJ"] },
+  // Leeds - 2 customers
+  { city: "Leeds", postcodes: ["LS1 4AP", "LS2 7EW"] },
+  // Edinburgh - 2 customers
+  { city: "Edinburgh", postcodes: ["EH1 1YS", "EH2 4RG"] },
+  // Bristol - 2 customers
+  { city: "Bristol", postcodes: ["BS1 4QA", "BS2 0JA"] },
+  // Cardiff - 1 customer
+  { city: "Cardiff", postcodes: ["CF10 1EP"] },
+  // Newcastle - 1 customer
+  { city: "Newcastle", postcodes: ["NE1 4ST"] },
+  // Southampton - 1 customer
+  { city: "Southampton", postcodes: ["SO14 2AQ"] },
+];
+
+const COMPANY_NAMES = [
+  "Apex Technologies Ltd", "Sterling Retail Group", "Phoenix Manufacturing",
+  "Horizon Healthcare", "Metro Commercial", "Atlas Logistics", "Zenith Finance",
+  "Pinnacle Properties", "Quantum Solutions", "Nova Enterprises",
+  "Vertex Holdings", "Summit Industries", "Nebula Tech", "Orion Services",
+  "Titan Corporation", "Eclipse Ventures", "Fusion Consulting", "Stellar Partners",
+  "Dynasty Group", "Momentum Business", "Vanguard Systems", "Catalyst Ltd",
+  "Infinity Trading", "Pioneer Works", "Legacy Enterprises"
+];
+
+const BUILDING_TYPES: BuildingType[] = ["OFFICE", "RETAIL", "WAREHOUSE", "RESTAURANT", "HOTEL"];
+const INDUSTRY_TYPES: IndustryType[] = ["TECHNOLOGY", "FINANCE", "RETAIL", "HOSPITALITY", "MANUFACTURING"];
+
+async function main() {
+  console.log("🚀 Starting comprehensive seed with 250 bookings...\n");
+
+  // =====================
+  // CLEANUP
+  // =====================
+  console.log("🧹 Cleaning up old data...");
+
+  await prisma.pATTestLog.deleteMany({});
+  await prisma.generatedReport.deleteMany({});
+  await prisma.reportTemplate.deleteMany({});
+  await prisma.asset.deleteMany({});
+  await prisma.booking.deleteMany({});
+  await prisma.bookingBundle.deleteMany({});
+  await prisma.bundleItem.deleteMany({});
+  await prisma.serviceBundle.deleteMany({});
+  await prisma.engineerAvailability.deleteMany({});
+  await prisma.engineerCoverageArea.deleteMany({});
+  await prisma.engineerQualification.deleteMany({});
+  await prisma.engineerCompetency.deleteMany({});
+  await prisma.engineerProfile.deleteMany({});
+  await prisma.complianceReminder.deleteMany({});
+  await prisma.upsellSuggestion.deleteMany({});
+  await prisma.notification.deleteMany({});
+  await prisma.pushSubscription.deleteMany({});
+  await prisma.allocationLog.deleteMany({});
+  await prisma.siteProfile.deleteMany({});
+  await prisma.site.deleteMany({});
+
+  // Delete seed users
+  await prisma.user.deleteMany({
+    where: {
+      email: { contains: "@seed.complianceconnect.co.uk" },
+    },
+  });
+
+  console.log("✅ Cleanup complete!\n");
+
+  // =====================
+  // CREATE SERVICES
+  // =====================
+  console.log("📦 Creating services...");
+
   const services = await Promise.all([
     prisma.service.upsert({
       where: { slug: "pat-testing" },
-      update: { complianceIntervalMonths: 12 },
+      update: {},
       create: {
         name: "PAT Testing",
         slug: "pat-testing",
@@ -47,11 +129,11 @@ async function main() {
     }),
     prisma.service.upsert({
       where: { slug: "fire-alarm-testing" },
-      update: { complianceIntervalMonths: 12 },
+      update: {},
       create: {
         name: "Fire Alarm Testing",
         slug: "fire-alarm-testing",
-        description: "Fire alarm system inspection and testing",
+        description: "Comprehensive fire alarm system testing and certification",
         basePrice: 8,
         minCharge: 150,
         unitName: "zone",
@@ -63,11 +145,11 @@ async function main() {
     }),
     prisma.service.upsert({
       where: { slug: "emergency-lighting" },
-      update: { complianceIntervalMonths: 12 },
+      update: {},
       create: {
         name: "Emergency Lighting",
         slug: "emergency-lighting",
-        description: "Emergency lighting inspection and testing",
+        description: "Emergency lighting testing and maintenance",
         basePrice: 5,
         minCharge: 120,
         unitName: "unit",
@@ -79,77 +161,31 @@ async function main() {
     }),
     prisma.service.upsert({
       where: { slug: "fixed-wire-testing" },
-      update: { complianceIntervalMonths: 60 },
+      update: {},
       create: {
-        name: "Fixed Wire Testing",
+        name: "Fixed Wire Testing (EICR)",
         slug: "fixed-wire-testing",
-        description: "EICR - Electrical Installation Condition Report",
+        description: "Electrical Installation Condition Report",
         basePrice: 15,
         minCharge: 200,
         unitName: "circuit",
         icon: "Building2",
         baseMinutes: 60,
-        minutesPerUnit: 10,
-        complianceIntervalMonths: 60, // 5 years for commercial
-      },
-    }),
-    prisma.service.upsert({
-      where: { slug: "thermographic-survey" },
-      update: {},
-      create: {
-        name: "Thermographic Survey",
-        slug: "thermographic-survey",
-        description: "Thermographic survey of electrical distribution boards to identify hot spots and potential failures",
-        basePrice: 45,
-        minCharge: 180,
-        unitName: "board",
-        icon: "Thermometer",
-        baseMinutes: 30,
-        minutesPerUnit: 15,
-      },
-    }),
-    prisma.service.upsert({
-      where: { slug: "thermal-imaging" },
-      update: {},
-      create: {
-        name: "Thermal Imaging",
-        slug: "thermal-imaging",
-        description: "Comprehensive thermal imaging inspection for building systems and equipment",
-        basePrice: 35,
-        minCharge: 200,
-        unitName: "area",
-        icon: "Scan",
-        baseMinutes: 45,
         minutesPerUnit: 20,
+        complianceIntervalMonths: 60,
       },
     }),
-    prisma.service.upsert({
-      where: { slug: "cctv-servicing" },
-      update: {},
-      create: {
-        name: "CCTV Servicing",
-        slug: "cctv-servicing",
-        description: "CCTV system inspection, maintenance, and servicing",
-        basePrice: 25,
-        minCharge: 150,
-        unitName: "camera",
-        icon: "Camera",
-        baseMinutes: 30,
-        minutesPerUnit: 10,
-      },
-    }),
-    // Fire Safety Services
     prisma.service.upsert({
       where: { slug: "fire-extinguisher-servicing" },
-      update: { complianceIntervalMonths: 12 },
+      update: {},
       create: {
         name: "Fire Extinguisher Servicing",
         slug: "fire-extinguisher-servicing",
-        description: "Annual fire extinguisher inspection, servicing, and certification",
+        description: "Annual inspection and servicing of fire extinguishers",
         basePrice: 8,
         minCharge: 80,
         unitName: "extinguisher",
-        icon: "Flame",
+        icon: "Shield",
         baseMinutes: 15,
         minutesPerUnit: 5,
         complianceIntervalMonths: 12,
@@ -157,34 +193,34 @@ async function main() {
     }),
     prisma.service.upsert({
       where: { slug: "fire-risk-assessment" },
-      update: { complianceIntervalMonths: 12 },
+      update: {},
       create: {
         name: "Fire Risk Assessment",
         slug: "fire-risk-assessment",
-        description: "Comprehensive fire risk assessment for your premises as required by law",
+        description: "Comprehensive fire risk assessment for compliance",
         basePrice: 250,
         minCharge: 250,
         unitName: "assessment",
-        icon: "ClipboardCheck",
-        baseMinutes: 120,
-        minutesPerUnit: 60,
-        complianceIntervalMonths: 12, // Should be reviewed annually
+        icon: "FileCheck",
+        baseMinutes: 180,
+        minutesPerUnit: 0,
+        complianceIntervalMonths: 12,
       },
     }),
-    // Health & Safety Assessments
     prisma.service.upsert({
-      where: { slug: "health-safety-risk-assessment" },
+      where: { slug: "health-safety-assessment" },
       update: {},
       create: {
         name: "Health & Safety Risk Assessment",
-        slug: "health-safety-risk-assessment",
-        description: "General workplace health and safety risk assessment",
+        slug: "health-safety-assessment",
+        description: "Comprehensive workplace health and safety assessment",
         basePrice: 200,
         minCharge: 200,
         unitName: "assessment",
-        icon: "HeartPulse",
-        baseMinutes: 90,
-        minutesPerUnit: 45,
+        icon: "FileCheck",
+        baseMinutes: 240,
+        minutesPerUnit: 0,
+        complianceIntervalMonths: 12,
       },
     }),
     prisma.service.upsert({
@@ -193,1050 +229,414 @@ async function main() {
       create: {
         name: "Legionella Risk Assessment",
         slug: "legionella-risk-assessment",
-        description: "Water system legionella risk assessment and compliance review",
+        description: "Water system legionella risk assessment",
         basePrice: 180,
         minCharge: 180,
         unitName: "assessment",
         icon: "Droplets",
-        baseMinutes: 90,
-        minutesPerUnit: 30,
-      },
-    }),
-    prisma.service.upsert({
-      where: { slug: "dse-assessment" },
-      update: {},
-      create: {
-        name: "DSE Assessment",
-        slug: "dse-assessment",
-        description: "Display Screen Equipment workstation assessment",
-        basePrice: 35,
-        minCharge: 100,
-        unitName: "workstation",
-        icon: "Monitor",
-        baseMinutes: 15,
-        minutesPerUnit: 10,
-      },
-    }),
-    // Training Services
-    prisma.service.upsert({
-      where: { slug: "fire-warden-training" },
-      update: {},
-      create: {
-        name: "Fire Warden Training",
-        slug: "fire-warden-training",
-        description: "Certified fire warden training course for designated staff",
-        basePrice: 75,
-        minCharge: 300,
-        unitName: "person",
-        icon: "GraduationCap",
-        baseMinutes: 180,
-        minutesPerUnit: 0,
-      },
-    }),
-    prisma.service.upsert({
-      where: { slug: "first-aid-training" },
-      update: {},
-      create: {
-        name: "First Aid Training",
-        slug: "first-aid-training",
-        description: "First aid at work training certification course",
-        basePrice: 95,
-        minCharge: 380,
-        unitName: "person",
-        icon: "Cross",
-        baseMinutes: 360,
-        minutesPerUnit: 0,
-      },
-    }),
-    prisma.service.upsert({
-      where: { slug: "fire-awareness-training" },
-      update: {},
-      create: {
-        name: "Fire Awareness Training",
-        slug: "fire-awareness-training",
-        description: "Fire safety awareness training for all staff members",
-        basePrice: 45,
-        minCharge: 200,
-        unitName: "person",
-        icon: "AlertTriangle",
         baseMinutes: 120,
         minutesPerUnit: 0,
-      },
-    }),
-    prisma.service.upsert({
-      where: { slug: "manual-handling-training" },
-      update: {},
-      create: {
-        name: "Manual Handling Training",
-        slug: "manual-handling-training",
-        description: "Safe manual handling techniques training course",
-        basePrice: 55,
-        minCharge: 220,
-        unitName: "person",
-        icon: "Package",
-        baseMinutes: 180,
-        minutesPerUnit: 0,
-      },
-    }),
-    prisma.service.upsert({
-      where: { slug: "working-at-height-training" },
-      update: {},
-      create: {
-        name: "Working at Height Training",
-        slug: "working-at-height-training",
-        description: "Working at height safety training and certification",
-        basePrice: 85,
-        minCharge: 340,
-        unitName: "person",
-        icon: "ArrowUpFromLine",
-        baseMinutes: 240,
-        minutesPerUnit: 0,
+        complianceIntervalMonths: 24,
       },
     }),
   ]);
 
-  console.log(`Created ${services.length} services`);
+  console.log(`✅ Created ${services.length} services\n`);
 
   // =====================
   // CREATE SERVICE BUNDLES
   // =====================
+  console.log("📦 Creating service bundles...");
+
+  const patService = services.find(s => s.slug === "pat-testing")!;
+  const fireAlarmService = services.find(s => s.slug === "fire-alarm-testing")!;
+  const emergencyLightingService = services.find(s => s.slug === "emergency-lighting")!;
+  const fixedWireService = services.find(s => s.slug === "fixed-wire-testing")!;
+  const fireExtService = services.find(s => s.slug === "fire-extinguisher-servicing")!;
+  const fireRiskService = services.find(s => s.slug === "fire-risk-assessment")!;
+  const hsService = services.find(s => s.slug === "health-safety-assessment")!;
 
   const bundles = await Promise.all([
-    prisma.serviceBundle.upsert({
-      where: { slug: "annual-compliance-package" },
-      update: {},
-      create: {
+    prisma.serviceBundle.create({
+      data: {
         name: "Annual Compliance Package",
-        slug: "annual-compliance-package",
-        description: "Complete annual compliance testing bundle including PAT testing, fire alarm testing, and emergency lighting. Perfect for offices and retail spaces.",
+        slug: "annual-compliance",
+        description: "Complete annual compliance testing bundle",
         discountPercent: 15,
         icon: "Package",
-        sortOrder: 1,
         recommendedFor: ["OFFICE", "RETAIL"],
+        items: {
+          create: [
+            { serviceId: patService.id, includedQty: 50 },
+            { serviceId: fireAlarmService.id, includedQty: 4 },
+            { serviceId: emergencyLightingService.id, includedQty: 20 },
+          ],
+        },
       },
     }),
-    prisma.serviceBundle.upsert({
-      where: { slug: "fire-safety-bundle" },
-      update: {},
-      create: {
+    prisma.serviceBundle.create({
+      data: {
         name: "Fire Safety Bundle",
-        slug: "fire-safety-bundle",
-        description: "Comprehensive fire safety package including fire alarm testing, emergency lighting, fire extinguisher servicing, and fire risk assessment.",
+        slug: "fire-safety",
+        description: "Comprehensive fire safety compliance package",
         discountPercent: 20,
         icon: "Flame",
-        sortOrder: 2,
-        recommendedFor: ["OFFICE", "RETAIL", "WAREHOUSE", "HOTEL", "RESTAURANT"],
+        recommendedFor: ["RESTAURANT", "HOTEL", "RETAIL"],
+        items: {
+          create: [
+            { serviceId: fireAlarmService.id, includedQty: 6 },
+            { serviceId: emergencyLightingService.id, includedQty: 30 },
+            { serviceId: fireExtService.id, includedQty: 10 },
+            { serviceId: fireRiskService.id, includedQty: 1 },
+          ],
+        },
       },
     }),
-    prisma.serviceBundle.upsert({
-      where: { slug: "electrical-safety-bundle" },
-      update: {},
-      create: {
+    prisma.serviceBundle.create({
+      data: {
         name: "Electrical Safety Bundle",
-        slug: "electrical-safety-bundle",
-        description: "Full electrical compliance package: PAT testing, fixed wire testing (EICR), and thermographic survey.",
+        slug: "electrical-safety",
+        description: "Full electrical safety compliance package",
         discountPercent: 18,
         icon: "Zap",
-        sortOrder: 3,
         recommendedFor: ["OFFICE", "WAREHOUSE", "MANUFACTURING"],
+        items: {
+          create: [
+            { serviceId: patService.id, includedQty: 100 },
+            { serviceId: fixedWireService.id, includedQty: 24 },
+          ],
+        },
       },
     }),
-    prisma.serviceBundle.upsert({
-      where: { slug: "restaurant-compliance" },
-      update: {},
-      create: {
-        name: "Restaurant Compliance Package",
+    prisma.serviceBundle.create({
+      data: {
+        name: "Restaurant Compliance",
         slug: "restaurant-compliance",
-        description: "Essential compliance package for food service establishments including PAT testing, fire safety, and health & safety assessments.",
+        description: "Complete compliance package for restaurants",
         discountPercent: 22,
-        icon: "ChefHat",
-        sortOrder: 4,
-        recommendedFor: ["RESTAURANT", "HOTEL"],
+        icon: "UtensilsCrossed",
+        recommendedFor: ["RESTAURANT"],
+        items: {
+          create: [
+            { serviceId: patService.id, includedQty: 30 },
+            { serviceId: fireAlarmService.id, includedQty: 3 },
+            { serviceId: fireExtService.id, includedQty: 5 },
+            { serviceId: hsService.id, includedQty: 1 },
+          ],
+        },
       },
     }),
-    prisma.serviceBundle.upsert({
-      where: { slug: "new-premises-setup" },
-      update: {},
-      create: {
+    prisma.serviceBundle.create({
+      data: {
         name: "New Premises Setup",
         slug: "new-premises-setup",
-        description: "Everything you need when moving into new premises: EICR, fire risk assessment, emergency lighting, and PAT testing.",
+        description: "Essential compliance for new business premises",
         discountPercent: 25,
         icon: "Building",
-        sortOrder: 5,
         recommendedFor: ["OFFICE", "RETAIL", "WAREHOUSE"],
+        items: {
+          create: [
+            { serviceId: fixedWireService.id, includedQty: 16 },
+            { serviceId: fireRiskService.id, includedQty: 1 },
+            { serviceId: emergencyLightingService.id, includedQty: 25 },
+            { serviceId: patService.id, includedQty: 40 },
+          ],
+        },
       },
     }),
-    prisma.serviceBundle.upsert({
-      where: { slug: "tech-office-bundle" },
-      update: {},
-      create: {
+    prisma.serviceBundle.create({
+      data: {
         name: "Tech Office Bundle",
-        slug: "tech-office-bundle",
-        description: "Designed for tech companies: PAT testing, DSE assessments, and thermographic survey for server equipment.",
+        slug: "tech-office",
+        description: "Ideal for technology companies with high equipment density",
         discountPercent: 15,
-        icon: "Laptop",
-        sortOrder: 6,
+        icon: "Monitor",
         recommendedFor: ["OFFICE"],
+        items: {
+          create: [
+            { serviceId: patService.id, includedQty: 150 },
+            { serviceId: fixedWireService.id, includedQty: 32 },
+          ],
+        },
       },
     }),
-    prisma.serviceBundle.upsert({
-      where: { slug: "training-package" },
-      update: {},
-      create: {
-        name: "Staff Training Package",
-        slug: "training-package",
-        description: "Comprehensive staff training: fire warden, first aid, fire awareness, and manual handling.",
+    prisma.serviceBundle.create({
+      data: {
+        name: "Warehouse Safety Package",
+        slug: "warehouse-safety",
+        description: "Complete safety compliance for warehouse facilities",
         discountPercent: 20,
-        icon: "GraduationCap",
-        sortOrder: 7,
-        recommendedFor: ["OFFICE", "RETAIL", "WAREHOUSE", "MANUFACTURING"],
+        icon: "Warehouse",
+        recommendedFor: ["WAREHOUSE", "MANUFACTURING"],
+        items: {
+          create: [
+            { serviceId: patService.id, includedQty: 80 },
+            { serviceId: fireAlarmService.id, includedQty: 8 },
+            { serviceId: emergencyLightingService.id, includedQty: 40 },
+            { serviceId: hsService.id, includedQty: 1 },
+          ],
+        },
       },
     }),
   ]);
 
-  console.log(`Created ${bundles.length} service bundles`);
+  console.log(`✅ Created ${bundles.length} service bundles\n`);
 
-  // Map services by slug for easy lookup
-  const serviceMap = new Map(services.map(s => [s.slug, s]));
+  // =====================
+  // CREATE ENGINEERS (8 total)
+  // =====================
+  console.log("👷 Creating engineers...");
 
-  // Add bundle items
-  const bundleItemsData = [
-    // Annual Compliance Package
-    { bundleSlug: "annual-compliance-package", serviceSlug: "pat-testing", isRequired: true },
-    { bundleSlug: "annual-compliance-package", serviceSlug: "fire-alarm-testing", isRequired: true },
-    { bundleSlug: "annual-compliance-package", serviceSlug: "emergency-lighting", isRequired: true },
-
-    // Fire Safety Bundle
-    { bundleSlug: "fire-safety-bundle", serviceSlug: "fire-alarm-testing", isRequired: true },
-    { bundleSlug: "fire-safety-bundle", serviceSlug: "emergency-lighting", isRequired: true },
-    { bundleSlug: "fire-safety-bundle", serviceSlug: "fire-extinguisher-servicing", isRequired: true },
-    { bundleSlug: "fire-safety-bundle", serviceSlug: "fire-risk-assessment", isRequired: true },
-
-    // Electrical Safety Bundle
-    { bundleSlug: "electrical-safety-bundle", serviceSlug: "pat-testing", isRequired: true },
-    { bundleSlug: "electrical-safety-bundle", serviceSlug: "fixed-wire-testing", isRequired: true },
-    { bundleSlug: "electrical-safety-bundle", serviceSlug: "thermographic-survey", isRequired: false },
-
-    // Restaurant Compliance
-    { bundleSlug: "restaurant-compliance", serviceSlug: "pat-testing", isRequired: true },
-    { bundleSlug: "restaurant-compliance", serviceSlug: "fire-alarm-testing", isRequired: true },
-    { bundleSlug: "restaurant-compliance", serviceSlug: "fire-extinguisher-servicing", isRequired: true },
-    { bundleSlug: "restaurant-compliance", serviceSlug: "health-safety-risk-assessment", isRequired: true },
-
-    // New Premises Setup
-    { bundleSlug: "new-premises-setup", serviceSlug: "fixed-wire-testing", isRequired: true },
-    { bundleSlug: "new-premises-setup", serviceSlug: "fire-risk-assessment", isRequired: true },
-    { bundleSlug: "new-premises-setup", serviceSlug: "emergency-lighting", isRequired: true },
-    { bundleSlug: "new-premises-setup", serviceSlug: "pat-testing", isRequired: true },
-
-    // Tech Office Bundle
-    { bundleSlug: "tech-office-bundle", serviceSlug: "pat-testing", isRequired: true },
-    { bundleSlug: "tech-office-bundle", serviceSlug: "dse-assessment", isRequired: true },
-    { bundleSlug: "tech-office-bundle", serviceSlug: "thermographic-survey", isRequired: false },
-
-    // Training Package
-    { bundleSlug: "training-package", serviceSlug: "fire-warden-training", isRequired: true },
-    { bundleSlug: "training-package", serviceSlug: "first-aid-training", isRequired: true },
-    { bundleSlug: "training-package", serviceSlug: "fire-awareness-training", isRequired: true },
-    { bundleSlug: "training-package", serviceSlug: "manual-handling-training", isRequired: false },
+  const engineerData = [
+    // PAT Testers (3)
+    { name: "James Mitchell", email: "james.mitchell@seed.complianceconnect.co.uk", type: "PAT_TESTER" as EngineerType, postcodes: ["SW", "W", "WC"], dayRate: 280, testRate: 0.45 },
+    { name: "Sarah Chen", email: "sarah.chen@seed.complianceconnect.co.uk", type: "PAT_TESTER" as EngineerType, postcodes: ["E", "EC"], dayRate: 290, testRate: 0.45 },
+    { name: "Tom Williams", email: "tom.williams@seed.complianceconnect.co.uk", type: "PAT_TESTER" as EngineerType, postcodes: ["N", "NW"], dayRate: 275, testRate: 0.45 },
+    // Electricians (2)
+    { name: "Mike Thompson", email: "mike.thompson@seed.complianceconnect.co.uk", type: "ELECTRICIAN" as EngineerType, postcodes: ["SE", "SW", "BR"], dayRate: 350, labourPercentage: 0.40 },
+    { name: "David Clarke", email: "david.clarke@seed.complianceconnect.co.uk", type: "ELECTRICIAN" as EngineerType, postcodes: ["M", "SK", "WA"], dayRate: 340, labourPercentage: 0.40 },
+    // Consultants (2)
+    { name: "Emma Roberts", email: "emma.roberts@seed.complianceconnect.co.uk", type: "CONSULTANT" as EngineerType, postcodes: ["B", "CV", "WS"], dayRate: 400 },
+    { name: "Chris Taylor", email: "chris.taylor@seed.complianceconnect.co.uk", type: "CONSULTANT" as EngineerType, postcodes: ["LS", "BD", "HX"], dayRate: 400 },
+    // General (1)
+    { name: "Alex Johnson", email: "alex.johnson@seed.complianceconnect.co.uk", type: "GENERAL" as EngineerType, postcodes: ["BS", "BA", "GL"], dayRate: 300 },
   ];
 
-  const bundleMap = new Map(bundles.map(b => [b.slug, b]));
+  const engineers = [];
+  for (const eng of engineerData) {
+    const user = await prisma.user.create({
+      data: {
+        clerkId: `seed_${eng.email.split("@")[0]}_clerk`,
+        name: eng.name,
+        email: eng.email,
+        role: "ENGINEER",
+        engineerProfile: {
+          create: {
+            status: "APPROVED",
+            approvedAt: new Date(),
+            yearsExperience: randomInt(5, 15),
+            dayRate: eng.dayRate,
+            engineerType: eng.type,
+            testRate: eng.testRate ?? 0.45,
+            labourPercentage: eng.labourPercentage ?? 0.40,
+            coverageAreas: {
+              create: eng.postcodes.map(p => ({ postcodePrefix: p, radiusKm: 25 })),
+            },
+            competencies: {
+              create: services.map(s => ({ serviceId: s.id, experienceYears: randomInt(2, 10), certified: true })),
+            },
+          },
+        },
+      },
+    });
+    engineers.push(user);
+  }
 
-  for (const item of bundleItemsData) {
-    const bundle = bundleMap.get(item.bundleSlug);
-    const service = serviceMap.get(item.serviceSlug);
-    if (bundle && service) {
-      await prisma.bundleItem.upsert({
-        where: { bundleId_serviceId: { bundleId: bundle.id, serviceId: service.id } },
-        update: {},
-        create: {
-          bundleId: bundle.id,
-          serviceId: service.id,
-          isRequired: item.isRequired,
+  console.log(`✅ Created ${engineers.length} engineers\n`);
+
+  // =====================
+  // CREATE CUSTOMERS & SITES (25 customers, ~100 sites)
+  // =====================
+  console.log("🏢 Creating customers and sites...");
+
+  const customers = [];
+  const allSites = [];
+  let customerIndex = 0;
+
+  for (const region of UK_REGIONS) {
+    for (const postcode of region.postcodes) {
+      const companyName = COMPANY_NAMES[customerIndex % COMPANY_NAMES.length];
+      const firstName = ["John", "Sarah", "Michael", "Emma", "David", "Lisa", "James", "Rachel"][randomInt(0, 7)];
+      const lastName = ["Smith", "Brown", "Wilson", "Taylor", "Anderson", "Thomas", "Jackson", "White"][randomInt(0, 7)];
+
+      const customer = await prisma.user.create({
+        data: {
+          clerkId: `seed_customer_${customerIndex}_clerk`,
+          name: `${firstName} ${lastName}`,
+          email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}.${customerIndex}@seed.complianceconnect.co.uk`,
+          role: "CUSTOMER",
+          companyName,
         },
       });
+      customers.push(customer);
+
+      // Create 3-5 sites per customer
+      const numSites = randomInt(3, 5);
+      for (let s = 0; s < numSites; s++) {
+        const buildingType = randomElement(BUILDING_TYPES);
+        const industryType = randomElement(INDUSTRY_TYPES);
+        const siteName = s === 0 ? `${region.city} HQ` : `${region.city} ${["Branch", "Warehouse", "Store", "Office"][s % 4]} ${s}`;
+
+        const site = await prisma.site.create({
+          data: {
+            userId: customer.id,
+            name: siteName,
+            address: `${randomInt(1, 200)} ${["High Street", "Business Park", "Industrial Estate", "Commercial Road", "Market Square"][s % 5]}, ${region.city}`,
+            postcode: postcode.replace(/\d[A-Z]{2}$/, `${randomInt(1, 9)}${["AA", "AB", "BA", "BB"][s % 4]}`),
+            profile: {
+              create: {
+                buildingType,
+                industryType,
+                floorArea: randomInt(200, 5000),
+                numberOfFloors: randomInt(1, 5),
+                estimatedPATItems: randomInt(20, 200),
+                estimatedFireZones: randomInt(2, 12),
+                estimatedEmergencyLights: randomInt(10, 50),
+                estimatedCircuits: randomInt(8, 48),
+                estimatedExtinguishers: randomInt(3, 15),
+                typicalOccupancy: randomInt(10, 200),
+                questionnaireComplete: true,
+                completedAt: new Date(),
+              },
+            },
+          },
+        });
+        allSites.push({ site, customer, buildingType });
+      }
+      customerIndex++;
     }
   }
 
-  console.log("Added bundle items");
+  console.log(`✅ Created ${customers.length} customers and ${allSites.length} sites\n`);
 
   // =====================
-  // CLEANUP OLD SEED DATA
+  // CREATE 250 BOOKINGS
   // =====================
-
-  // Delete old seed users and their related data
-  const seedClerkIds = [
-    "seed_engineer1_clerk_id", "seed_engineer2_clerk_id", "seed_engineer3_clerk_id",
-    "seed_customer1_clerk_id", "seed_customer2_clerk_id", "seed_customer3_clerk_id",
-    "engineer1_clerk_id", "engineer2_clerk_id", "engineer3_clerk_id",
-    "customer1_clerk_id", "customer2_clerk_id", "customer3_clerk_id",
-  ];
-
-  const seedEmails = [
-    "james.mitchell@complianceconnect.co.uk",
-    "sarah.chen@complianceconnect.co.uk",
-    "mike.thompson@complianceconnect.co.uk",
-    "john.smith@acmecorp.co.uk",
-    "lisa.brown@techinnovate.co.uk",
-    "david.wilson@nlretail.co.uk",
-  ];
-
-  // Delete in order to respect foreign key constraints
-  await prisma.asset.deleteMany({});
-  await prisma.booking.deleteMany({});
-  await prisma.engineerAvailability.deleteMany({});
-  await prisma.engineerCoverageArea.deleteMany({});
-  await prisma.engineerQualification.deleteMany({});
-  await prisma.engineerCompetency.deleteMany({});
-  await prisma.engineerProfile.deleteMany({});
-  // Delete bundle-related data
-  await prisma.bookingBundle.deleteMany({});
-  await prisma.bundleItem.deleteMany({});
-  await prisma.serviceBundle.deleteMany({});
-  // Delete compliance tracking data
-  await prisma.complianceReminder.deleteMany({});
-  await prisma.upsellSuggestion.deleteMany({});
-  // Delete notification data
-  await prisma.notification.deleteMany({});
-  await prisma.pushSubscription.deleteMany({});
-  // Delete allocation logs
-  await prisma.allocationLog.deleteMany({});
-  // Delete site profiles
-  await prisma.siteProfile.deleteMany({});
-  await prisma.site.deleteMany({});
-  await prisma.user.deleteMany({
-    where: {
-      OR: [
-        { clerkId: { in: seedClerkIds } },
-        { email: { in: seedEmails } },
-      ],
-    },
-  });
-
-  console.log("Cleaned up old seed data");
-
-  // =====================
-  // CREATE ENGINEERS
-  // =====================
-
-  // Engineer 1: James Mitchell (Central/West London specialist)
-  const engineer1 = await prisma.user.upsert({
-    where: { clerkId: "seed_engineer1_clerk_id" },
-    update: {},
-    create: {
-      clerkId: "seed_engineer1_clerk_id",
-      name: "James Mitchell",
-      email: "james.mitchell@complianceconnect.co.uk",
-      role: "ENGINEER",
-      phone: "+44 7700 900123",
-    },
-  });
-
-  const engineer1Profile = await prisma.engineerProfile.upsert({
-    where: { userId: engineer1.id },
-    update: {},
-    create: {
-      userId: engineer1.id,
-      status: "APPROVED",
-      approvedAt: new Date(),
-      yearsExperience: 12,
-      bio: "Senior electrical engineer specializing in PAT testing and fire safety systems. 12+ years experience across commercial and residential properties in Central London.",
-      dayRate: 320,
-    },
-  });
-
-  // Engineer 2: Sarah Chen (East London / Tech sector specialist)
-  const engineer2 = await prisma.user.upsert({
-    where: { clerkId: "seed_engineer2_clerk_id" },
-    update: {},
-    create: {
-      clerkId: "seed_engineer2_clerk_id",
-      name: "Sarah Chen",
-      email: "sarah.chen@complianceconnect.co.uk",
-      role: "ENGINEER",
-      phone: "+44 7700 900456",
-    },
-  });
-
-  const engineer2Profile = await prisma.engineerProfile.upsert({
-    where: { userId: engineer2.id },
-    update: {},
-    create: {
-      userId: engineer2.id,
-      status: "APPROVED",
-      approvedAt: new Date(),
-      yearsExperience: 8,
-      bio: "Tech sector specialist with expertise in data center compliance and startup office testing. EICR certified.",
-      dayRate: 290,
-    },
-  });
-
-  // Engineer 3: Mike Thompson (North London)
-  const engineer3 = await prisma.user.upsert({
-    where: { clerkId: "seed_engineer3_clerk_id" },
-    update: {},
-    create: {
-      clerkId: "seed_engineer3_clerk_id",
-      name: "Mike Thompson",
-      email: "mike.thompson@complianceconnect.co.uk",
-      role: "ENGINEER",
-      phone: "+44 7700 900789",
-    },
-  });
-
-  const engineer3Profile = await prisma.engineerProfile.upsert({
-    where: { userId: engineer3.id },
-    update: {},
-    create: {
-      userId: engineer3.id,
-      status: "APPROVED",
-      approvedAt: new Date(),
-      yearsExperience: 15,
-      bio: "Fire alarm and emergency lighting specialist. BAFE certified with extensive experience in retail and hospitality sectors.",
-      dayRate: 350,
-    },
-  });
-
-  // Add qualifications for all engineers
-  await prisma.engineerQualification.createMany({
-    data: [
-      // James Mitchell
-      { engineerProfileId: engineer1Profile.id, name: "18th Edition (BS 7671)", issuingBody: "City & Guilds", verified: true },
-      { engineerProfileId: engineer1Profile.id, name: "City & Guilds 2391 (Inspection & Testing)", issuingBody: "City & Guilds", verified: true },
-      { engineerProfileId: engineer1Profile.id, name: "PAT Testing Certification", issuingBody: "City & Guilds", verified: true },
-      { engineerProfileId: engineer1Profile.id, name: "Fire Alarm BS 5839 Competency", issuingBody: "FIA", verified: true },
-      // Sarah Chen
-      { engineerProfileId: engineer2Profile.id, name: "18th Edition (BS 7671)", issuingBody: "City & Guilds", verified: true },
-      { engineerProfileId: engineer2Profile.id, name: "City & Guilds 2391", issuingBody: "City & Guilds", verified: true },
-      { engineerProfileId: engineer2Profile.id, name: "Data Center Compliance Specialist", issuingBody: "TIA", verified: true },
-      // Mike Thompson
-      { engineerProfileId: engineer3Profile.id, name: "Fire Alarm BS 5839 Competency", issuingBody: "FIA", verified: true },
-      { engineerProfileId: engineer3Profile.id, name: "Emergency Lighting BS 5266", issuingBody: "IET", verified: true },
-      { engineerProfileId: engineer3Profile.id, name: "BAFE SP203-1 Certification", issuingBody: "BAFE", verified: true },
-    ],
-    skipDuplicates: true,
-  });
-
-  // Add competencies
-  for (const service of services) {
-    // James - all services
-    await prisma.engineerCompetency.upsert({
-      where: { engineerProfileId_serviceId: { engineerProfileId: engineer1Profile.id, serviceId: service.id } },
-      update: {},
-      create: { engineerProfileId: engineer1Profile.id, serviceId: service.id, experienceYears: 10, certified: true },
-    });
-    // Sarah - PAT and Fixed Wire
-    if (["pat-testing", "fixed-wire-testing"].includes(service.slug)) {
-      await prisma.engineerCompetency.upsert({
-        where: { engineerProfileId_serviceId: { engineerProfileId: engineer2Profile.id, serviceId: service.id } },
-        update: {},
-        create: { engineerProfileId: engineer2Profile.id, serviceId: service.id, experienceYears: 8, certified: true },
-      });
-    }
-    // Mike - Fire and Emergency Lighting
-    if (["fire-alarm-testing", "emergency-lighting"].includes(service.slug)) {
-      await prisma.engineerCompetency.upsert({
-        where: { engineerProfileId_serviceId: { engineerProfileId: engineer3Profile.id, serviceId: service.id } },
-        update: {},
-        create: { engineerProfileId: engineer3Profile.id, serviceId: service.id, experienceYears: 15, certified: true },
-      });
-    }
-  }
-
-  // Add coverage areas
-  await prisma.engineerCoverageArea.createMany({
-    data: [
-      // James - Central/West London
-      ...["SW1", "SW3", "SW5", "SW7", "SW10", "W1", "W2", "W8", "WC1", "WC2", "EC1", "EC2"].map(p => ({
-        engineerProfileId: engineer1Profile.id, postcodePrefix: p, radiusKm: 15,
-      })),
-      // Sarah - East London
-      ...["E1", "E2", "E3", "E14", "E15", "E16", "EC1", "EC2", "EC3", "EC4"].map(p => ({
-        engineerProfileId: engineer2Profile.id, postcodePrefix: p, radiusKm: 12,
-      })),
-      // Mike - North London
-      ...["N1", "N2", "N4", "N7", "N8", "NW1", "NW3", "NW5", "NW6", "NW8"].map(p => ({
-        engineerProfileId: engineer3Profile.id, postcodePrefix: p, radiusKm: 12,
-      })),
-    ],
-    skipDuplicates: true,
-  });
-
-  console.log("Created 3 engineers with profiles, qualifications, and coverage areas");
-
-  // =====================
-  // CREATE CUSTOMERS & SITES
-  // =====================
-
-  // Customer 1: ACME Corporation (multiple locations)
-  const customer1 = await prisma.user.upsert({
-    where: { clerkId: "seed_customer1_clerk_id" },
-    update: {},
-    create: {
-      clerkId: "seed_customer1_clerk_id",
-      name: "John Smith",
-      email: "john.smith@acmecorp.co.uk",
-      role: "CUSTOMER",
-      companyName: "ACME Corporation",
-      phone: "+44 20 7946 0958",
-    },
-  });
-
-  const customer1Sites = await Promise.all([
-    prisma.site.upsert({
-      where: { id: "acme_hq" },
-      update: {},
-      create: {
-        id: "acme_hq",
-        userId: customer1.id,
-        name: "ACME London HQ",
-        address: "123 Fleet Street",
-        postcode: "EC4A 2BB",
-        latitude: 51.5142,
-        longitude: -0.1069,
-        accessNotes: "Reception on ground floor. Ask for facilities.",
-      },
-    }),
-    prisma.site.upsert({
-      where: { id: "acme_warehouse" },
-      update: {},
-      create: {
-        id: "acme_warehouse",
-        userId: customer1.id,
-        name: "ACME Warehouse",
-        address: "45 Industrial Estate, Wandsworth",
-        postcode: "SW18 4AA",
-        latitude: 51.4549,
-        longitude: -0.1919,
-        accessNotes: "Security gate - call ahead. Loading bay access.",
-      },
-    }),
-    prisma.site.upsert({
-      where: { id: "acme_retail" },
-      update: {},
-      create: {
-        id: "acme_retail",
-        userId: customer1.id,
-        name: "ACME Retail Store",
-        address: "78 High Street, Kensington",
-        postcode: "W8 4SG",
-        latitude: 51.5006,
-        longitude: -0.1925,
-        accessNotes: "Access via rear entrance before 9am.",
-      },
-    }),
-  ]);
-
-  // Customer 2: Tech Innovate (startup)
-  const customer2 = await prisma.user.upsert({
-    where: { clerkId: "seed_customer2_clerk_id" },
-    update: {},
-    create: {
-      clerkId: "seed_customer2_clerk_id",
-      name: "Lisa Brown",
-      email: "lisa.brown@techinnovate.co.uk",
-      role: "CUSTOMER",
-      companyName: "Tech Innovate Ltd",
-      phone: "+44 20 7123 4567",
-    },
-  });
-
-  const customer2Sites = await Promise.all([
-    prisma.site.upsert({
-      where: { id: "tech_hub" },
-      update: {},
-      create: {
-        id: "tech_hub",
-        userId: customer2.id,
-        name: "Tech Hub Office",
-        address: "200 Old Street",
-        postcode: "EC1V 9NR",
-        latitude: 51.5263,
-        longitude: -0.0873,
-        accessNotes: "Buzzer code 4521. 3rd floor.",
-      },
-    }),
-    prisma.site.upsert({
-      where: { id: "tech_datacenter" },
-      update: {},
-      create: {
-        id: "tech_datacenter",
-        userId: customer2.id,
-        name: "Data Center",
-        address: "15 Docklands Way, Canary Wharf",
-        postcode: "E14 9SH",
-        latitude: 51.5055,
-        longitude: -0.0235,
-        accessNotes: "Security clearance required 24hrs in advance.",
-      },
-    }),
-  ]);
-
-  // Customer 3: North London Retail Group
-  const customer3 = await prisma.user.upsert({
-    where: { clerkId: "seed_customer3_clerk_id" },
-    update: {},
-    create: {
-      clerkId: "seed_customer3_clerk_id",
-      name: "David Wilson",
-      email: "david.wilson@nlretail.co.uk",
-      role: "CUSTOMER",
-      companyName: "North London Retail Group",
-      phone: "+44 20 7890 1234",
-    },
-  });
-
-  const customer3Sites = await Promise.all([
-    prisma.site.upsert({
-      where: { id: "nlr_store1" },
-      update: {},
-      create: {
-        id: "nlr_store1",
-        userId: customer3.id,
-        name: "Camden Store",
-        address: "55 Camden High Street",
-        postcode: "NW1 7JH",
-        latitude: 51.5391,
-        longitude: -0.1426,
-        accessNotes: "Staff entrance on side street.",
-      },
-    }),
-    prisma.site.upsert({
-      where: { id: "nlr_store2" },
-      update: {},
-      create: {
-        id: "nlr_store2",
-        userId: customer3.id,
-        name: "Islington Store",
-        address: "120 Upper Street",
-        postcode: "N1 1QP",
-        latitude: 51.5441,
-        longitude: -0.1025,
-        accessNotes: "Ask for store manager on arrival.",
-      },
-    }),
-  ]);
-
-  console.log("Created 3 customers with 7 sites total");
-
-  // =====================
-  // CREATE SITE PROFILES
-  // =====================
-
-  await Promise.all([
-    // ACME HQ - Large office
-    prisma.siteProfile.upsert({
-      where: { siteId: "acme_hq" },
-      update: {},
-      create: {
-        siteId: "acme_hq",
-        buildingType: "OFFICE",
-        industryType: "PROFESSIONAL_SERVICES",
-        floorArea: 2500,
-        numberOfFloors: 3,
-        numberOfRooms: 45,
-        hasServerRoom: true,
-        hasPublicAccess: true,
-        yearBuilt: 1985,
-        lastRefurbishment: 2019,
-        estimatedPATItems: 180,
-        estimatedFireZones: 8,
-        estimatedEmergencyLights: 35,
-        estimatedCircuits: 24,
-        estimatedExtinguishers: 12,
-        typicalOccupancy: 120,
-        numberOfWorkstations: 100,
-        questionnaireComplete: true,
-        completedAt: new Date(),
-      },
-    }),
-    // ACME Warehouse
-    prisma.siteProfile.upsert({
-      where: { siteId: "acme_warehouse" },
-      update: {},
-      create: {
-        siteId: "acme_warehouse",
-        buildingType: "WAREHOUSE",
-        industryType: "PROFESSIONAL_SERVICES",
-        floorArea: 5000,
-        numberOfFloors: 1,
-        numberOfRooms: 8,
-        hasWorkshop: true,
-        yearBuilt: 1995,
-        estimatedPATItems: 45,
-        estimatedFireZones: 4,
-        estimatedEmergencyLights: 20,
-        estimatedCircuits: 16,
-        estimatedExtinguishers: 8,
-        typicalOccupancy: 25,
-        questionnaireComplete: true,
-        completedAt: new Date(),
-      },
-    }),
-    // ACME Retail Store
-    prisma.siteProfile.upsert({
-      where: { siteId: "acme_retail" },
-      update: {},
-      create: {
-        siteId: "acme_retail",
-        buildingType: "RETAIL",
-        industryType: "RETAIL",
-        floorArea: 400,
-        numberOfFloors: 2,
-        numberOfRooms: 6,
-        hasPublicAccess: true,
-        yearBuilt: 1960,
-        lastRefurbishment: 2015,
-        estimatedPATItems: 35,
-        estimatedFireZones: 3,
-        estimatedEmergencyLights: 12,
-        estimatedCircuits: 8,
-        estimatedExtinguishers: 4,
-        typicalOccupancy: 50,
-        numberOfWorkstations: 4,
-        questionnaireComplete: true,
-        completedAt: new Date(),
-      },
-    }),
-    // Tech Hub Office
-    prisma.siteProfile.upsert({
-      where: { siteId: "tech_hub" },
-      update: {},
-      create: {
-        siteId: "tech_hub",
-        buildingType: "OFFICE",
-        industryType: "TECHNOLOGY",
-        floorArea: 800,
-        numberOfFloors: 1,
-        numberOfRooms: 12,
-        hasServerRoom: true,
-        yearBuilt: 2010,
-        estimatedPATItems: 120,
-        estimatedFireZones: 4,
-        estimatedEmergencyLights: 18,
-        estimatedCircuits: 12,
-        estimatedExtinguishers: 6,
-        typicalOccupancy: 45,
-        numberOfWorkstations: 40,
-        questionnaireComplete: true,
-        completedAt: new Date(),
-      },
-    }),
-    // Tech Data Center
-    prisma.siteProfile.upsert({
-      where: { siteId: "tech_datacenter" },
-      update: {},
-      create: {
-        siteId: "tech_datacenter",
-        buildingType: "WAREHOUSE",
-        industryType: "TECHNOLOGY",
-        floorArea: 1200,
-        numberOfFloors: 1,
-        numberOfRooms: 5,
-        hasServerRoom: true,
-        yearBuilt: 2018,
-        estimatedPATItems: 25,
-        estimatedFireZones: 6,
-        estimatedEmergencyLights: 24,
-        estimatedCircuits: 48,
-        estimatedExtinguishers: 8,
-        typicalOccupancy: 10,
-        questionnaireComplete: true,
-        completedAt: new Date(),
-      },
-    }),
-    // Camden Store
-    prisma.siteProfile.upsert({
-      where: { siteId: "nlr_store1" },
-      update: {},
-      create: {
-        siteId: "nlr_store1",
-        buildingType: "RETAIL",
-        industryType: "RETAIL",
-        floorArea: 350,
-        numberOfFloors: 2,
-        numberOfRooms: 4,
-        hasPublicAccess: true,
-        yearBuilt: 1920,
-        lastRefurbishment: 2020,
-        estimatedPATItems: 30,
-        estimatedFireZones: 2,
-        estimatedEmergencyLights: 10,
-        estimatedCircuits: 6,
-        estimatedExtinguishers: 3,
-        typicalOccupancy: 40,
-        numberOfWorkstations: 2,
-        questionnaireComplete: true,
-        completedAt: new Date(),
-      },
-    }),
-    // Islington Store
-    prisma.siteProfile.upsert({
-      where: { siteId: "nlr_store2" },
-      update: {},
-      create: {
-        siteId: "nlr_store2",
-        buildingType: "RETAIL",
-        industryType: "RETAIL",
-        floorArea: 500,
-        numberOfFloors: 3,
-        numberOfRooms: 8,
-        hasPublicAccess: true,
-        yearBuilt: 1890,
-        lastRefurbishment: 2018,
-        estimatedPATItems: 45,
-        estimatedFireZones: 4,
-        estimatedEmergencyLights: 16,
-        estimatedCircuits: 10,
-        estimatedExtinguishers: 5,
-        typicalOccupancy: 60,
-        numberOfWorkstations: 3,
-        questionnaireComplete: true,
-        completedAt: new Date(),
-      },
-    }),
-  ]);
-
-  console.log("Created site profiles for all sites");
-
-  // =====================
-  // CREATE BOOKINGS ACROSS 2 MONTHS
-  // =====================
+  console.log("📅 Creating 250 bookings...");
 
   const today = startOfDay(new Date());
-  const allSites = [...customer1Sites, ...customer2Sites, ...customer3Sites];
-  const engineers = [engineer1, engineer2, engineer3];
-  const timeSlots = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00"];
+  const bookingStatuses: BookingStatus[] = ["COMPLETED", "COMPLETED", "COMPLETED", "COMPLETED", // 40%
+                                            "CONFIRMED", "CONFIRMED", // 20%
+                                            "PENDING", "PENDING", // 15%
+                                            "IN_PROGRESS", // 10%
+                                            "CANCELLED", // 10%
+                                            "CONFIRMED"]; // 5% provisional
 
-  // Delete existing bookings first to avoid duplicates
-  await prisma.asset.deleteMany({});
-  await prisma.booking.deleteMany({});
+  const bookings = [];
+  for (let i = 0; i < 250; i++) {
+    const { site, customer } = randomElement(allSites);
+    const service = randomElement(services);
+    const engineer = randomElement(engineers);
+    const status = randomElement(bookingStatuses);
 
-  const bookingsToCreate: Array<{
-    customerId: string;
-    siteId: string;
-    serviceId: string;
-    engineerId?: string;
-    scheduledDate: Date;
-    slot: string;
-    estimatedQty: number;
-    quotedPrice: number;
-    originalPrice: number;
-    discountPercent: number;
-    estimatedDuration: number;
-    status: "PENDING" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
-    notes?: string;
-    startedAt?: Date;
-    completedAt?: Date;
-    engineerNotes?: string;
-  }> = [];
+    // Date based on status
+    let scheduledDate: Date;
+    let isProvisional = false;
 
-  // Generate bookings for next 60 days
-  for (let dayOffset = -14; dayOffset <= 60; dayOffset++) {
-    const bookingDate = addDays(today, dayOffset);
-    const dayOfWeek = bookingDate.getDay();
-
-    // Skip weekends for most bookings
-    if (dayOfWeek === 0 || dayOfWeek === 6) continue;
-
-    // Determine how many bookings this day (varies to create clusters)
-    let bookingsThisDay = 0;
-
-    // Create clusters of bookings on certain days for discount demonstration
-    if (dayOffset % 7 === 0) {
-      bookingsThisDay = 3; // Weekly cluster
-    } else if (dayOffset % 3 === 0) {
-      bookingsThisDay = 2; // Bi-weekly pair
-    } else if (Math.random() > 0.6) {
-      bookingsThisDay = 1; // Random single bookings
+    if (status === "COMPLETED") {
+      scheduledDate = subDays(today, randomInt(7, 90)); // Past 90 days
+    } else if (status === "IN_PROGRESS") {
+      scheduledDate = today;
+    } else if (status === "CANCELLED") {
+      scheduledDate = subDays(today, randomInt(1, 30));
+    } else {
+      scheduledDate = addDays(today, randomInt(1, 45)); // Future 45 days
+      // 5% of future bookings are provisional
+      if (Math.random() < 0.05) {
+        isProvisional = true;
+      }
     }
 
-    for (let b = 0; b < bookingsThisDay; b++) {
-      const service = services[Math.floor(Math.random() * services.length)];
-      const site = allSites[Math.floor(Math.random() * allSites.length)];
-      const customer = site.userId;
-      const slot = timeSlots[Math.floor(Math.random() * timeSlots.length)];
+    const qty = randomInt(10, 100);
+    const basePrice = Math.max(service.basePrice * qty, service.minCharge);
+    const discountPercent = Math.random() < 0.3 ? randomInt(10, 25) : 0;
+    const quotedPrice = basePrice * (1 - discountPercent / 100);
 
-      // Determine engineer based on site location
-      let assignedEngineer: typeof engineer1 | undefined;
-      const postcode = site.postcode;
-      if (postcode.startsWith("EC") || postcode.startsWith("W") || postcode.startsWith("SW")) {
-        assignedEngineer = engineer1;
-      } else if (postcode.startsWith("E")) {
-        assignedEngineer = engineer2;
-      } else if (postcode.startsWith("N")) {
-        assignedEngineer = engineer3;
-      }
-
-      // Calculate quantity based on service
-      let qty = 0;
-      switch (service.slug) {
-        case "pat-testing":
-          qty = Math.floor(Math.random() * 150) + 30;
-          break;
-        case "fire-alarm-testing":
-          qty = Math.floor(Math.random() * 12) + 4;
-          break;
-        case "emergency-lighting":
-          qty = Math.floor(Math.random() * 40) + 10;
-          break;
-        case "fixed-wire-testing":
-          qty = Math.floor(Math.random() * 20) + 8;
-          break;
-      }
-
-      const basePrice = Math.max(service.basePrice * qty, service.minCharge);
-
-      // Calculate discount based on nearby bookings
-      let discount = 0;
-      const nearbyBookings = bookingsToCreate.filter(bk => {
-        const diff = Math.abs(bk.scheduledDate.getTime() - bookingDate.getTime());
-        return diff < 2 * 24 * 60 * 60 * 1000; // Within 2 days
-      });
-
-      if (nearbyBookings.length >= 2) {
-        discount = 50;
-      } else if (nearbyBookings.length === 1) {
-        discount = 25;
-      } else if (bookingsThisDay > 1 && b > 0) {
-        discount = 10;
-      }
-
-      const discountedPrice = basePrice * (1 - discount / 100);
-      const duration = Math.ceil(service.baseMinutes + service.minutesPerUnit * qty);
-
-      // Determine status based on date
-      let status: "PENDING" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" = "PENDING";
-      let startedAt: Date | undefined;
-      let completedAt: Date | undefined;
-      let engineerNotes: string | undefined;
-
-      if (dayOffset < -7) {
-        status = "COMPLETED";
-        startedAt = bookingDate;
-        completedAt = bookingDate;
-        engineerNotes = "Job completed successfully. All items tested and certified.";
-      } else if (dayOffset < 0) {
-        status = Math.random() > 0.2 ? "COMPLETED" : "CANCELLED";
-        if (status === "COMPLETED") {
-          startedAt = bookingDate;
-          completedAt = bookingDate;
-          engineerNotes = "Work completed as scheduled.";
-        }
-      } else if (dayOffset === 0) {
-        status = Math.random() > 0.5 ? "IN_PROGRESS" : "CONFIRMED";
-        if (status === "IN_PROGRESS") {
-          startedAt = new Date();
-        }
-      } else if (dayOffset <= 7) {
-        status = Math.random() > 0.3 ? "CONFIRMED" : "PENDING";
-      }
-
-      bookingsToCreate.push({
-        customerId: customer,
-        siteId: site.id,
-        serviceId: service.id,
-        engineerId: status !== "PENDING" && status !== "CANCELLED" ? assignedEngineer?.id : undefined,
-        scheduledDate: bookingDate,
-        slot,
-        estimatedQty: qty,
-        quotedPrice: Math.round(discountedPrice * 100) / 100,
-        originalPrice: Math.round(basePrice * 100) / 100,
-        discountPercent: discount,
-        estimatedDuration: duration,
-        status,
-        notes: `${service.name} for ${qty} ${service.unitName}s`,
-        startedAt,
-        completedAt,
-        engineerNotes,
-      });
-    }
-  }
-
-  // Create all bookings
-  for (const booking of bookingsToCreate) {
-    await prisma.booking.create({
+    const booking = await prisma.booking.create({
       data: {
         reference: generateBookingRef(),
-        ...booking,
+        customerId: customer.id,
+        siteId: site.id,
+        serviceId: service.id,
+        engineerId: status !== "PENDING" ? engineer.id : null,
+        status,
+        scheduledDate,
+        slot: randomElement(["09:00", "10:00", "11:00", "13:00", "14:00"]),
+        estimatedQty: qty,
+        quotedPrice,
+        originalPrice: basePrice,
+        discountPercent,
+        estimatedDuration: Math.ceil(service.baseMinutes + service.minutesPerUnit * qty),
+        isProvisional,
+        provisionalUntil: isProvisional ? addDays(today, 7) : null,
+        startedAt: status === "IN_PROGRESS" || status === "COMPLETED" ? scheduledDate : null,
+        completedAt: status === "COMPLETED" ? scheduledDate : null,
       },
     });
-  }
+    bookings.push(booking);
 
-  console.log(`Created ${bookingsToCreate.length} bookings across 2 months`);
-
-  // =====================
-  // SET ENGINEER AVAILABILITY
-  // =====================
-
-  const availabilityData: Array<{
-    engineerProfileId: string;
-    date: Date;
-    slot: string;
-    isAvailable: boolean;
-  }> = [];
-
-  // Set availability for next 60 days for all engineers
-  for (let i = 0; i < 60; i++) {
-    const date = startOfDay(addDays(today, i));
-    const dayOfWeek = date.getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-
-    for (const profile of [engineer1Profile, engineer2Profile, engineer3Profile]) {
-      // AM slot
-      availabilityData.push({
-        engineerProfileId: profile.id,
-        date,
-        slot: "AM",
-        isAvailable: !isWeekend && Math.random() > 0.1, // 90% available on weekdays
-      });
-      // PM slot
-      availabilityData.push({
-        engineerProfileId: profile.id,
-        date,
-        slot: "PM",
-        isAvailable: !isWeekend && Math.random() > 0.15, // 85% available on weekdays
-      });
+    // Add assets for completed PAT testing bookings
+    if (status === "COMPLETED" && service.slug === "pat-testing") {
+      const assetCount = randomInt(5, 20);
+      const assetData = [];
+      for (let a = 0; a < assetCount; a++) {
+        assetData.push({
+          bookingId: booking.id,
+          name: randomElement(["Kettle", "Monitor", "Laptop", "Printer", "Microwave", "Fan Heater", "Desk Lamp", "Phone Charger"]),
+          location: randomElement(["Office 1", "Kitchen", "Meeting Room", "Reception", "Warehouse", "Server Room"]),
+          status: Math.random() < 0.95 ? "PASS" : "FAIL",
+          assetTag: `PAT-${randomInt(1000, 9999)}`,
+        });
+      }
+      await prisma.asset.createMany({ data: assetData });
     }
   }
 
-  for (const av of availabilityData) {
-    await prisma.engineerAvailability.upsert({
-      where: {
-        engineerProfileId_date_slot: {
-          engineerProfileId: av.engineerProfileId,
-          date: av.date,
-          slot: av.slot,
+  console.log(`✅ Created ${bookings.length} bookings\n`);
+
+  // =====================
+  // CREATE COMPLIANCE REMINDERS
+  // =====================
+  console.log("🔔 Creating compliance reminders...");
+
+  let remindersCreated = 0;
+  for (const { site, customer } of allSites.slice(0, 50)) {
+    for (const service of services.slice(0, 4)) {
+      const lastTestDate = subDays(today, randomInt(30, 400));
+      const intervalMonths = service.complianceIntervalMonths ?? 12;
+      const nextDueDate = addDays(lastTestDate, intervalMonths * 30);
+      const isOverdue = nextDueDate < today;
+      const isDueSoon = !isOverdue && nextDueDate < addDays(today, 30);
+
+      await prisma.complianceReminder.create({
+        data: {
+          customerId: customer.id,
+          siteId: site.id,
+          serviceId: service.id,
+          lastTestDate,
+          nextDueDate,
+          autoRebookEnabled: Math.random() < 0.3,
+          reminderSent30Days: isDueSoon || isOverdue,
+          reminderSent7Days: isOverdue,
+          reminderSentOverdue: isOverdue,
         },
-      },
-      update: { isAvailable: av.isAvailable },
-      create: av,
-    });
+      });
+      remindersCreated++;
+    }
   }
 
-  console.log("Set engineer availability for 60 days");
+  console.log(`✅ Created ${remindersCreated} compliance reminders\n`);
 
-  // Create admin user
-  await prisma.user.upsert({
-    where: { email: "admin@complianceconnect.co.uk" },
-    update: {},
-    create: {
-      clerkId: "admin_clerk_id",
-      name: "Admin User",
-      email: "admin@complianceconnect.co.uk",
-      role: "ADMIN",
-    },
-  });
-
-  console.log("Created admin user");
-  console.log("Seed completed successfully!");
+  // =====================
+  // SUMMARY
+  // =====================
+  console.log("═".repeat(50));
+  console.log("📊 SEED SUMMARY");
+  console.log("═".repeat(50));
+  console.log(`Services:           ${services.length}`);
+  console.log(`Service Bundles:    ${bundles.length}`);
+  console.log(`Engineers:          ${engineers.length}`);
+  console.log(`Customers:          ${customers.length}`);
+  console.log(`Sites:              ${allSites.length}`);
+  console.log(`Bookings:           ${bookings.length}`);
+  console.log(`Compliance Reminders: ${remindersCreated}`);
+  console.log("═".repeat(50));
+  console.log("\n✅ Database seeded successfully!");
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error("❌ Seed failed:", e);
     process.exit(1);
   })
   .finally(async () => {

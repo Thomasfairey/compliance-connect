@@ -29,6 +29,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { PricingCalendar } from "@/components/booking/pricing-calendar";
 import { TimeSlotPicker } from "@/components/booking/time-slot-picker";
+import { MobileStickyFooter } from "@/components/booking/mobile-sticky-footer";
+import { useIsMobile } from "@/hooks/use-media-query";
 import { cn, formatPrice, calculateQuote } from "@/lib/utils";
 import { createBooking, createSite, getAvailableDiscount } from "@/lib/actions";
 import type { Service, Site } from "@prisma/client";
@@ -79,6 +81,7 @@ type PricingInfo = {
 
 export function BookingWizard({ services, sites: initialSites, initialSiteId }: BookingWizardProps) {
   const router = useRouter();
+  const isMobile = useIsMobile();
   const [currentStep, setCurrentStep] = useState(0);
   const [direction, setDirection] = useState(0);
   const [data, setData] = useState<BookingWizardData>(() => {
@@ -152,14 +155,14 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
     fetchPricing();
   }, [data.serviceId, data.siteId, data.scheduledDate, data.estimatedQty]);
 
-  const canProceed = useCallback(() => {
+  const canProceed = useCallback((): boolean => {
     switch (steps[currentStep].id) {
       case "service":
         return !!data.serviceId;
       case "site":
         return !!data.siteId;
       case "details":
-        return data.estimatedQty && data.estimatedQty > 0;
+        return (data.estimatedQty ?? 0) > 0;
       case "schedule":
         return !!data.scheduledDate && !!data.slot;
       case "review":
@@ -250,9 +253,10 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
 
   return (
     <div className="max-w-3xl mx-auto">
-      {/* Progress */}
+      {/* Progress - Desktop only shows full stepper, mobile shows simplified header */}
       <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
+        {/* Desktop progress stepper */}
+        <div className="hidden lg:flex items-center justify-between mb-4">
           {steps.map((step, index) => (
             <div key={step.id} className="flex items-center">
               <div
@@ -274,7 +278,7 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
               {index < steps.length - 1 && (
                 <div
                   className={cn(
-                    "hidden sm:block w-12 lg:w-24 h-0.5 mx-2 transition-all",
+                    "w-12 lg:w-24 h-0.5 mx-2 transition-all",
                     index < currentStep ? "bg-primary" : "bg-muted"
                   )}
                 />
@@ -283,7 +287,7 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
           ))}
         </div>
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-foreground">
+          <h2 className="text-xl lg:text-xl font-semibold text-foreground">
             {steps[currentStep].title}
           </h2>
           <p className="text-sm text-muted-foreground">
@@ -733,8 +737,8 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
         </AnimatePresence>
       </div>
 
-      {/* Navigation */}
-      <div className="flex items-center justify-between mt-8">
+      {/* Desktop Navigation */}
+      <div className="hidden lg:flex items-center justify-between mt-8">
         <Button
           variant="outline"
           onClick={goBack}
@@ -765,6 +769,24 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
           </Button>
         )}
       </div>
+
+      {/* Mobile Sticky Footer */}
+      {isMobile && (
+        <MobileStickyFooter
+          currentStep={currentStep}
+          totalSteps={steps.length}
+          stepTitle={steps[currentStep].title}
+          onBack={goBack}
+          onNext={goNext}
+          onSubmit={handleSubmit}
+          canProceed={canProceed()}
+          loading={loading}
+          isLastStep={currentStep === steps.length - 1}
+        />
+      )}
+
+      {/* Add bottom padding on mobile for sticky footer */}
+      {isMobile && <div className="h-32" />}
     </div>
   );
 }

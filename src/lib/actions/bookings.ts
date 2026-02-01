@@ -780,10 +780,14 @@ export async function assignEngineerToBooking(
 // Valid status transitions
 const VALID_STATUS_TRANSITIONS: Record<BookingStatus, BookingStatus[]> = {
   PENDING: ["CONFIRMED", "CANCELLED"],
-  CONFIRMED: ["IN_PROGRESS", "CANCELLED", "PENDING"],
-  IN_PROGRESS: ["COMPLETED", "CANCELLED"],
-  COMPLETED: [], // No transitions from completed
-  CANCELLED: ["PENDING"], // Can reopen a cancelled booking
+  CONFIRMED: ["EN_ROUTE", "DECLINED", "CANCELLED", "PENDING"],
+  EN_ROUTE: ["ON_SITE", "CONFIRMED"],
+  ON_SITE: ["IN_PROGRESS", "EN_ROUTE"],
+  IN_PROGRESS: ["COMPLETED", "REQUIRES_REVISIT", "CANCELLED"],
+  COMPLETED: [],
+  CANCELLED: ["PENDING"],
+  DECLINED: ["PENDING"],
+  REQUIRES_REVISIT: ["CONFIRMED"],
 };
 
 export async function updateBookingStatus(
@@ -836,5 +840,283 @@ export async function updateBookingStatus(
       error:
         error instanceof Error ? error.message : "Failed to update status",
     };
+  }
+}
+
+// =====================
+// PROVISIONAL BOOKING FUNCTIONS
+// =====================
+
+/**
+ * Create a provisional booking that can be shifted until a deadline
+ */
+export async function createProvisionalBooking(
+  input: CreateBookingInput,
+  daysUntilConfirm: number = 7
+): Promise<{ success: boolean; data?: BookingWithRelations; error?: string }> {
+  try {
+    const user = await requireUser();
+    const validated = bookingSchema.parse(input);
+
+    // Verify site belongs to user
+    const site = await db.site.findFirst({
+      where: { id: validated.siteId, userId: user.id },
+    });
+
+    if (!site) {
+      return { success: false, error: "Site not found" };
+    }
+
+    const service = await db.service.findUnique({
+      where: { id: validated.serviceId },
+    });
+
+    if (!service) {
+      return { success: false, error: "Service not found" };
+    }
+
+    // Calculate dynamic pricing
+    const pricing = await calculateDynamicPrice(
+      service,
+      site,
+      validated.scheduledDate,
+      validated.estimatedQty
+    );
+
+    const duration = calculateDuration(service, validated.estimatedQty);
+
+    // Calculate provisional deadline
+    const provisionalUntil = new Date();
+    provisionalUntil.setDate(provisionalUntil.getDate() + daysUntilConfirm);
+
+    // Auto-assign an available engineer
+    const assignedEngineerId = await findAvailableEngineer(
+      validated.serviceId,
+      site.postcode,
+      validated.scheduledDate,
+      validated.slot
+    );
+
+    const booking = await db.booking.create({
+      data: {
+        reference: generateBookingReference(),
+        customerId: user.id,
+        siteId: validated.siteId,
+        serviceId: validated.serviceId,
+        scheduledDate: validated.scheduledDate,
+        slot: validated.slot,
+        estimatedQty: validated.estimatedQty,
+        quotedPrice: pricing.discountedPrice,
+        originalPrice: pricing.originalPrice,
+        discountPercent: pricing.discountPercent,
+        estimatedDuration: duration.estimatedMinutes,
+        notes: validated.notes,
+        engineerId: assignedEngineerId,
+        status: assignedEngineerId ? "CONFIRMED" : "PENDING",
+        isProvisional: true,
+        provisionalUntil,
+      },
+      include: {
+        customer: true,
+        site: true,
+        service: true,
+        engineer: true,
+        assets: true,
+      },
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/bookings");
+    if (assignedEngineerId) {
+      revalidatePath("/engineer");
+      revalidatePath("/engineer/jobs");
+    }
+
+    return { success: true, data: booking };
+  } catch (error) {
+    console.error("Error creating provisional booking:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to create provisional booking",
+    };
+  }
+}
+
+/**
+ * Confirm a provisional booking (removes provisional status)
+ */
+export async function confirmProvisionalBooking(
+  bookingId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await requireUser();
+
+    const booking = await db.booking.findFirst({
+      where: {
+        id: bookingId,
+        OR: [
+          { customerId: user.id },
+          // Admin can also confirm
+        ],
+      },
+    });
+
+    if (!booking) {
+      return { success: false, error: "Booking not found" };
+    }
+
+    if (!booking.isProvisional) {
+      return { success: false, error: "Booking is not provisional" };
+    }
+
+    await db.booking.update({
+      where: { id: bookingId },
+      data: {
+        isProvisional: false,
+        confirmedAt: new Date(),
+        provisionalUntil: null,
+      },
+    });
+
+    revalidatePath("/bookings");
+    revalidatePath(`/bookings/${bookingId}`);
+    revalidatePath("/engineer/jobs");
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error confirming provisional booking:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to confirm booking",
+    };
+  }
+}
+
+/**
+ * Shift a provisional booking to a new date/slot
+ */
+export async function shiftProvisionalBooking(
+  bookingId: string,
+  newDate: Date,
+  newSlot: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await requireRole(["ADMIN"]);
+
+    const booking = await db.booking.findUnique({
+      where: { id: bookingId },
+      include: { site: true, service: true },
+    });
+
+    if (!booking) {
+      return { success: false, error: "Booking not found" };
+    }
+
+    if (!booking.isProvisional) {
+      return { success: false, error: "Cannot shift a confirmed booking" };
+    }
+
+    if (booking.provisionalUntil && new Date() > booking.provisionalUntil) {
+      return { success: false, error: "Provisional deadline has passed" };
+    }
+
+    // Recalculate pricing for new date
+    const pricing = await calculateDynamicPrice(
+      booking.service,
+      booking.site,
+      newDate,
+      booking.estimatedQty
+    );
+
+    // Find available engineer for new slot
+    const newEngineerId = await findAvailableEngineer(
+      booking.serviceId,
+      booking.site.postcode,
+      newDate,
+      newSlot
+    );
+
+    await db.booking.update({
+      where: { id: bookingId },
+      data: {
+        scheduledDate: newDate,
+        slot: newSlot,
+        quotedPrice: pricing.discountedPrice,
+        originalPrice: pricing.originalPrice,
+        discountPercent: pricing.discountPercent,
+        engineerId: newEngineerId,
+        status: newEngineerId ? "CONFIRMED" : "PENDING",
+      },
+    });
+
+    revalidatePath("/admin/bookings");
+    revalidatePath(`/admin/bookings/${bookingId}`);
+    revalidatePath("/bookings");
+    revalidatePath(`/bookings/${bookingId}`);
+    revalidatePath("/engineer/jobs");
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error shifting provisional booking:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to shift booking",
+    };
+  }
+}
+
+/**
+ * Get provisional bookings for an engineer
+ */
+export async function getProvisionalBookings(): Promise<BookingWithRelations[]> {
+  try {
+    const user = await requireRole(["ENGINEER", "ADMIN"]);
+
+    const bookings = await db.booking.findMany({
+      where: {
+        engineerId: user.id,
+        isProvisional: true,
+        status: { in: ["PENDING", "CONFIRMED"] },
+      },
+      include: {
+        customer: true,
+        site: true,
+        service: true,
+        engineer: true,
+        assets: true,
+      },
+      orderBy: { scheduledDate: "asc" },
+    });
+
+    return bookings;
+  } catch (error) {
+    console.error("Error getting provisional bookings:", error);
+    return [];
+  }
+}
+
+/**
+ * Auto-confirm provisional bookings past their deadline (for cron job)
+ */
+export async function autoConfirmProvisionalBookings(): Promise<{ confirmed: number }> {
+  try {
+    const result = await db.booking.updateMany({
+      where: {
+        isProvisional: true,
+        provisionalUntil: {
+          lt: new Date(),
+        },
+        status: { in: ["PENDING", "CONFIRMED"] },
+      },
+      data: {
+        isProvisional: false,
+        confirmedAt: new Date(),
+      },
+    });
+
+    return { confirmed: result.count };
+  } catch (error) {
+    console.error("Error auto-confirming provisional bookings:", error);
+    return { confirmed: 0 };
   }
 }

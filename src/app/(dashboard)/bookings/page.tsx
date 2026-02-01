@@ -64,7 +64,7 @@ function BookingsList({
   if (items.length === 0) {
     return (
       <EmptyState
-        icon={Calendar}
+        icon={<Calendar className="w-8 h-8 text-gray-400" />}
         title="No bookings found"
         description={emptyMessage}
         actionLabel="Book Now"

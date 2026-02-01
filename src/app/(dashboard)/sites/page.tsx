@@ -31,7 +31,7 @@ export default async function SitesPage() {
 
       {sites.length === 0 ? (
         <EmptyState
-          icon={Building2}
+          icon={<Building2 className="w-8 h-8 text-gray-400" />}
           title="No sites yet"
           description="Add your first site to start booking compliance tests."
           actionLabel="Add Site"

@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getOrCreateUser } from "@/lib/auth";
 import { getBookingById } from "@/lib/actions";
+import { getJobEvidence } from "@/lib/actions/uploads";
 
 export const dynamic = "force-dynamic";
 import { PageHeader, StatusBadge } from "@/components/shared";
@@ -15,11 +16,16 @@ import {
   FileText,
   Phone,
   Navigation,
+  Camera,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { JobActions } from "@/components/engineer/job-actions";
 import { AssetList } from "@/components/engineer/asset-list";
 import { AddAssetForm } from "@/components/engineer/add-asset-form";
+import { JobStatusWorkflow } from "@/components/engineer/job-status-workflow";
+import { PhotoCapture, PhotoGallery } from "@/components/engineer/photo-capture";
+import { SignatureCapture, SignatureDisplay } from "@/components/engineer/signature-capture";
+import { CertificateDownload } from "@/components/engineer/certificate-download";
 
 export const metadata = {
   title: "Job Details",
@@ -37,7 +43,10 @@ export default async function EngineerJobDetailPage({
   }
 
   const { id } = await params;
-  const booking = await getBookingById(id);
+  const [booking, evidence] = await Promise.all([
+    getBookingById(id),
+    getJobEvidence(id),
+  ]);
 
   if (!booking) {
     notFound();
@@ -46,11 +55,17 @@ export default async function EngineerJobDetailPage({
   const isAssignedToMe = booking.engineerId === user.id;
   const canAssign = !booking.engineerId && booking.status === "PENDING";
   const canStart = isAssignedToMe && booking.status === "CONFIRMED";
+  const isActiveJob = isAssignedToMe && ["EN_ROUTE", "ON_SITE", "IN_PROGRESS"].includes(booking.status);
   const canAddAssets = isAssignedToMe && booking.status === "IN_PROGRESS";
   const canComplete =
     isAssignedToMe &&
     booking.status === "IN_PROGRESS" &&
     booking.assets.length > 0;
+
+  // Filter photos from evidence
+  const photos = evidence
+    .filter((e) => e.type === "PHOTO")
+    .map((e) => ({ id: e.id, url: e.fileUrl, description: e.description }));
 
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
     `${booking.site.address}, ${booking.site.postcode}`
@@ -158,6 +173,90 @@ export default async function EngineerJobDetailPage({
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {/* Job Status Workflow - Only for assigned engineer */}
+          {isAssignedToMe && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Job Progress</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <JobStatusWorkflow
+                  bookingId={booking.id}
+                  status={booking.status}
+                  hasSignature={!!booking.customerSignatureUrl}
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Photo Evidence - Only during active job */}
+          {isActiveJob && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-lg">
+                  <Camera className="h-4 w-4 inline mr-2" />
+                  Photos ({photos.length})
+                </CardTitle>
+                <PhotoCapture bookingId={booking.id} />
+              </CardHeader>
+              <CardContent>
+                <PhotoGallery photos={photos} />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Customer Signature - Only during IN_PROGRESS */}
+          {isAssignedToMe && booking.status === "IN_PROGRESS" && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Customer Signature</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {booking.customerSignatureUrl ? (
+                  <SignatureDisplay
+                    signatureUrl={booking.customerSignatureUrl}
+                    signedBy={booking.customerSignedBy || undefined}
+                    signedAt={booking.customerSignedAt || undefined}
+                  />
+                ) : (
+                  <SignatureCapture bookingId={booking.id} />
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Display signature on completed jobs */}
+          {booking.status === "COMPLETED" && booking.customerSignatureUrl && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Customer Signature</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <SignatureDisplay
+                  signatureUrl={booking.customerSignatureUrl}
+                  signedBy={booking.customerSignedBy || undefined}
+                  signedAt={booking.customerSignedAt || undefined}
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Certificate download for completed jobs */}
+          {booking.status === "COMPLETED" && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Completion Certificate</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CertificateDownload
+                  bookingId={booking.id}
+                  certificateUrl={booking.certificateUrl}
+                  canRegenerate={isAssignedToMe || user.role === "ADMIN"}
+                />
+              </CardContent>
+            </Card>
+          )}
+
           {/* Site Details */}
           <Card>
             <CardHeader>

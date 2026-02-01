@@ -1,6 +1,3 @@
-"use client";
-
-import { motion } from "framer-motion";
 import { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,14 +22,11 @@ export function StatCard({
   className,
 }: StatCardProps) {
   return (
-    <motion.div
+    <div
       className={cn(
-        "bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow",
+        "bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-all hover:-translate-y-0.5",
         className
       )}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -2 }}
     >
       <div className="flex items-start justify-between">
         <div>
@@ -57,6 +51,6 @@ export function StatCard({
           <Icon className="w-6 h-6 text-gray-600" />
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

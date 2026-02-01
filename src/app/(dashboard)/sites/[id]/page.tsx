@@ -362,6 +362,16 @@ export default function SiteDetailPage() {
                 <ClipboardList className="h-4 w-4 mr-2" />
                 Book a Test
               </Button>
+              <Button
+                className="w-full justify-start"
+                variant="outline"
+                onClick={() =>
+                  router.push(`/sites/${site.id}/questionnaire`)
+                }
+              >
+                <Building2 className="h-4 w-4 mr-2" />
+                Site Profile Questionnaire
+              </Button>
             </CardContent>
           </Card>
         </div>

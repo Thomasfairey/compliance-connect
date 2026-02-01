@@ -1,6 +1,3 @@
-"use client";
-
-import { motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -19,11 +16,7 @@ export function PageHeader({
   action,
 }: PageHeaderProps) {
   return (
-    <motion.div
-      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8"
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-    >
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
       <div className="flex items-start gap-4">
         {backHref && (
           <Link href={backHref} aria-label="Go back">
@@ -42,6 +35,6 @@ export function PageHeader({
         </div>
       </div>
       {action && <div>{action}</div>}
-    </motion.div>
+    </div>
   );
 }

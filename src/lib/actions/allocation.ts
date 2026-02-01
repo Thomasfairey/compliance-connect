@@ -2,6 +2,13 @@
 
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import {
+  lookupPostcode,
+  lookupPostcodes,
+  calculateDistance,
+  estimateDrivingTimeMinutes,
+  getPostcodeArea,
+} from "@/lib/postcodes";
 
 export type AllocationCandidate = {
   engineerId: string;
@@ -11,6 +18,7 @@ export type AllocationCandidate = {
   travelTime?: number;
   distanceKm?: number;
   hasCompetency: boolean;
+  hasValidQualification: boolean;
   isAvailable: boolean;
   existingJobsOnDay: number;
 };
@@ -25,7 +33,7 @@ export type AllocationResult = {
   error?: string;
 };
 
-// Greedy allocation algorithm
+// Greedy allocation algorithm with distance-based scoring and qualification expiry check
 export async function findBestEngineer(
   bookingId: string
 ): Promise<AllocationResult> {
@@ -42,7 +50,7 @@ export async function findBestEngineer(
       return { success: false, error: "Booking not found" };
     }
 
-    // Get all approved engineers
+    // Get all approved engineers with their qualifications
     const engineers = await db.user.findMany({
       where: {
         role: "ENGINEER",
@@ -55,6 +63,7 @@ export async function findBestEngineer(
           include: {
             competencies: true,
             coverageAreas: true,
+            qualifications: true,
             availability: {
               where: {
                 date: booking.scheduledDate,
@@ -66,7 +75,22 @@ export async function findBestEngineer(
     });
 
     const candidates: AllocationCandidate[] = [];
-    const sitePostcodePrefix = booking.site.postcode.split(" ")[0].replace(/[0-9]/g, "");
+    const sitePostcodeArea = getPostcodeArea(booking.site.postcode);
+
+    // Lookup site coordinates
+    const siteCoords = await lookupPostcode(booking.site.postcode);
+    const hasSiteCoords = siteCoords.success && siteCoords.result;
+
+    // Collect all engineer postcodes for bulk lookup
+    const engineerPostcodes: string[] = [];
+    for (const engineer of engineers) {
+      if (engineer.engineerProfile?.coverageAreas) {
+        for (const area of engineer.engineerProfile.coverageAreas) {
+          if (area.centerLat && area.centerLng) continue; // Already has coords
+          engineerPostcodes.push(area.postcodePrefix + "1 1AA"); // Approximate center
+        }
+      }
+    }
 
     for (const engineer of engineers) {
       if (!engineer.engineerProfile) continue;
@@ -74,6 +98,8 @@ export async function findBestEngineer(
       const profile = engineer.engineerProfile;
       let score = 0;
       const reasons: string[] = [];
+      let distanceKm: number | undefined;
+      let travelTime: number | undefined;
 
       // 1. Check competency for the service (required)
       const hasCompetency = profile.competencies.some(
@@ -86,6 +112,7 @@ export async function findBestEngineer(
           score: 0,
           reasons: ["No competency for this service"],
           hasCompetency: false,
+          hasValidQualification: false,
           isAvailable: false,
           existingJobsOnDay: 0,
         });
@@ -94,18 +121,116 @@ export async function findBestEngineer(
       score += 30;
       reasons.push("Has required competency");
 
-      // 2. Check coverage area
-      const coversArea = profile.coverageAreas.some((area) => {
-        const areaPrefix = area.postcodePrefix.replace(/[0-9]/g, "");
-        return sitePostcodePrefix.startsWith(areaPrefix) ||
-               areaPrefix.startsWith(sitePostcodePrefix);
+      // 2. Check qualification expiry (CRITICAL - must have valid cert on job date)
+      const relevantQualifications = profile.qualifications.filter((q) => {
+        // Check if qualification is relevant to the service
+        // Common mappings: PAT Testing needs PAT cert, Electrical needs 18th Edition, etc.
+        const serviceName = booking.service.name.toLowerCase();
+        const qualName = q.name.toLowerCase();
+
+        if (serviceName.includes("pat")) {
+          return qualName.includes("pat") || qualName.includes("portable appliance");
+        }
+        if (serviceName.includes("electric") || serviceName.includes("eicr")) {
+          return qualName.includes("18th") || qualName.includes("2391") || qualName.includes("electrical");
+        }
+        if (serviceName.includes("fire")) {
+          return qualName.includes("fire") || qualName.includes("safety");
+        }
+        // Default: any qualification counts
+        return true;
       });
-      if (coversArea) {
-        score += 25;
+
+      const hasValidQualification = relevantQualifications.some((q) => {
+        if (!q.expiryDate) return true; // No expiry = always valid
+        return new Date(q.expiryDate) >= new Date(booking.scheduledDate);
+      });
+
+      if (!hasValidQualification && relevantQualifications.length > 0) {
+        candidates.push({
+          engineerId: engineer.id,
+          engineerName: engineer.name,
+          score: 0,
+          reasons: ["Qualification expired before job date"],
+          hasCompetency: true,
+          hasValidQualification: false,
+          isAvailable: false,
+          existingJobsOnDay: 0,
+        });
+        continue;
+      }
+
+      if (hasValidQualification) {
+        score += 10;
+        reasons.push("Valid qualification for job date");
+      }
+
+      // 3. Calculate proximity score using real distance
+      let coversArea = false;
+      let closestDistance = Infinity;
+
+      for (const area of profile.coverageAreas) {
+        const areaPrefix = getPostcodeArea(area.postcodePrefix);
+
+        // Check if postcode area matches
+        if (sitePostcodeArea.startsWith(areaPrefix) || areaPrefix.startsWith(sitePostcodeArea)) {
+          coversArea = true;
+        }
+
+        // Calculate actual distance if we have coordinates
+        if (hasSiteCoords && siteCoords.result) {
+          let areaLat = area.centerLat;
+          let areaLng = area.centerLng;
+
+          // If no stored coords, try to get approximate center
+          if (!areaLat || !areaLng) {
+            const areaLookup = await lookupPostcode(area.postcodePrefix + "1 1AA");
+            if (areaLookup.success && areaLookup.result) {
+              areaLat = areaLookup.result.latitude;
+              areaLng = areaLookup.result.longitude;
+            }
+          }
+
+          if (areaLat && areaLng) {
+            const distance = calculateDistance(
+              siteCoords.result.latitude,
+              siteCoords.result.longitude,
+              areaLat,
+              areaLng
+            );
+            if (distance < closestDistance) {
+              closestDistance = distance;
+            }
+          }
+        }
+      }
+
+      // Apply proximity scoring
+      if (closestDistance !== Infinity) {
+        distanceKm = Math.round(closestDistance * 10) / 10;
+        travelTime = estimateDrivingTimeMinutes(closestDistance);
+
+        if (closestDistance <= 5) {
+          score += 30; // Very close
+          reasons.push(`Only ${distanceKm}km away - very close`);
+        } else if (closestDistance <= 15) {
+          score += 25; // Close
+          reasons.push(`${distanceKm}km away - close`);
+        } else if (closestDistance <= 30) {
+          score += 15; // Moderate distance
+          reasons.push(`${distanceKm}km away - moderate`);
+        } else if (closestDistance <= 50) {
+          score += 5; // Far but within range
+          reasons.push(`${distanceKm}km away - within range`);
+        } else {
+          reasons.push(`${distanceKm}km away - quite far`);
+        }
+      } else if (coversArea) {
+        score += 20;
         reasons.push("Covers site postcode area");
       }
 
-      // 3. Check availability
+      // 4. Check availability
       const slot = booking.slot;
       const availabilityRecord = profile.availability.find(
         (a) => a.slot === slot || a.slot === "FULL_DAY"
@@ -119,15 +244,18 @@ export async function findBestEngineer(
           score: 0,
           reasons: ["Not available for this slot"],
           hasCompetency: true,
+          hasValidQualification,
           isAvailable: false,
           existingJobsOnDay: 0,
+          distanceKm,
+          travelTime,
         });
         continue;
       }
-      score += 20;
+      score += 15;
       reasons.push("Available for the time slot");
 
-      // 4. Check existing jobs on the same day (for route optimization)
+      // 5. Check existing jobs on the same day (cluster awareness)
       const existingJobsOnDay = await db.booking.count({
         where: {
           engineerId: engineer.id,
@@ -137,8 +265,8 @@ export async function findBestEngineer(
       });
 
       if (existingJobsOnDay > 0) {
-        // Check if any existing jobs are in the same area
-        const existingJobsInArea = await db.booking.findMany({
+        // Check distance to existing jobs
+        const existingJobs = await db.booking.findMany({
           where: {
             engineerId: engineer.id,
             scheduledDate: booking.scheduledDate,
@@ -147,24 +275,42 @@ export async function findBestEngineer(
           include: { site: true },
         });
 
-        const sameAreaJobs = existingJobsInArea.filter((job) => {
-          const jobPrefix = job.site.postcode.split(" ")[0].replace(/[0-9]/g, "");
-          return jobPrefix === sitePostcodePrefix;
-        });
+        let hasNearbyJob = false;
+        for (const job of existingJobs) {
+          if (hasSiteCoords && siteCoords.result && job.site.latitude && job.site.longitude) {
+            const jobDistance = calculateDistance(
+              siteCoords.result.latitude,
+              siteCoords.result.longitude,
+              job.site.latitude,
+              job.site.longitude
+            );
+            if (jobDistance <= 10) {
+              hasNearbyJob = true;
+              break;
+            }
+          } else {
+            // Fallback to postcode prefix comparison
+            const jobArea = getPostcodeArea(job.site.postcode);
+            if (jobArea === sitePostcodeArea) {
+              hasNearbyJob = true;
+              break;
+            }
+          }
+        }
 
-        if (sameAreaJobs.length > 0) {
-          score += 15; // Bonus for route efficiency
-          reasons.push(`Has ${sameAreaJobs.length} other job(s) in same area - route efficient`);
+        if (hasNearbyJob) {
+          score += 20; // Big bonus for route efficiency
+          reasons.push(`Already has nearby job on same day - very efficient`);
         } else if (existingJobsOnDay <= 2) {
           score += 5;
           reasons.push(`Has ${existingJobsOnDay} other job(s) on this day`);
         }
       } else {
-        score += 10;
+        score += 8;
         reasons.push("Day is free - flexible scheduling");
       }
 
-      // 5. Experience bonus
+      // 6. Experience bonus
       const competency = profile.competencies.find(
         (c) => c.serviceId === booking.serviceId
       );
@@ -179,8 +325,11 @@ export async function findBestEngineer(
         score,
         reasons,
         hasCompetency: true,
+        hasValidQualification,
         isAvailable: true,
         existingJobsOnDay,
+        distanceKm,
+        travelTime,
       });
     }
 
