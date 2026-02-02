@@ -13,13 +13,13 @@ export function Logo({ size = 32, className = "" }: LogoProps) {
       className={className}
     >
       {/* Outer teal ring */}
-      <circle cx="50" cy="50" r="47" fill="none" stroke="#0097A7" strokeWidth="4"/>
+      <circle cx="50" cy="50" r="46" fill="none" stroke="#0097A7" strokeWidth="4"/>
       {/* Inner teal circle */}
       <circle cx="50" cy="50" r="36" fill="#0097A7"/>
       {/* White T - crossbar */}
-      <rect x="30" y="28" width="40" height="10" fill="#FFFFFF"/>
-      {/* White T - stem extending to white ring */}
-      <rect x="45" y="28" width="10" height="36" fill="#FFFFFF"/>
+      <rect x="28" y="26" width="44" height="12" fill="#FFFFFF"/>
+      {/* White T - stem that cuts through inner circle to merge with white ring */}
+      <rect x="44" y="26" width="12" height="62" fill="#FFFFFF"/>
     </svg>
   );
 }

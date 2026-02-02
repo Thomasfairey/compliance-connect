@@ -16,48 +16,53 @@ export default function Icon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "transparent",
-          position: "relative",
+          background: "white",
         }}
       >
         {/* Outer ring */}
         <div
           style={{
-            width: 30,
-            height: 30,
+            width: 28,
+            height: 28,
             borderRadius: "50%",
             border: "2px solid #0097A7",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            position: "absolute",
-          }}
-        />
-        {/* Inner circle */}
-        <div
-          style={{
-            width: 22,
-            height: 22,
-            borderRadius: "50%",
-            background: "#0097A7",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            position: "absolute",
+            position: "relative",
+            overflow: "hidden",
           }}
         >
-          {/* White T */}
+          {/* Inner teal circle */}
           <div
             style={{
-              color: "white",
-              fontSize: 14,
-              fontWeight: 800,
-              fontFamily: "sans-serif",
-              marginTop: -1,
+              width: 20,
+              height: 20,
+              borderRadius: "50%",
+              background: "#0097A7",
+              position: "absolute",
             }}
-          >
-            T
-          </div>
+          />
+          {/* White T crossbar */}
+          <div
+            style={{
+              width: 14,
+              height: 4,
+              background: "white",
+              position: "absolute",
+              top: 6,
+            }}
+          />
+          {/* White T stem - extends through bottom to white ring */}
+          <div
+            style={{
+              width: 4,
+              height: 18,
+              background: "white",
+              position: "absolute",
+              top: 6,
+            }}
+          />
         </div>
       </div>
     ),
