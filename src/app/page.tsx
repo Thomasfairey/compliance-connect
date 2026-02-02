@@ -24,6 +24,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/ui/logo";
 
 const fadeIn = {
   initial: { opacity: 0, y: 20 },
@@ -162,9 +163,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link href="/" className="flex items-center gap-2">
-              <div className="w-9 h-9 gradient-primary rounded-xl flex items-center justify-center shadow-lg">
-                <Shield className="w-5 h-5 text-white" />
-              </div>
+              <Logo size={36} />
               <span className="font-bold text-lg">Compliance Connect</span>
             </Link>
 
@@ -520,9 +519,7 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center shadow-lg">
-                <Shield className="w-5 h-5 text-white" />
-              </div>
+              <Logo size={40} />
               <div>
                 <span className="font-bold text-lg">Compliance Connect</span>
                 <p className="text-sm text-muted-foreground">Smart compliance testing</p>

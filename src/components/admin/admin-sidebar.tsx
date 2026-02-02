@@ -4,9 +4,10 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { ChevronRight, Shield, Users, Calendar, Clock, LogOut } from "lucide-react";
+import { ChevronRight, Users, Calendar, Clock, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/ui/logo";
 import { adminNavItems, type NavItem } from "./admin-nav-config";
 
 interface AdminSidebarProps {
@@ -56,9 +57,7 @@ export function AdminSidebar({ userName, collapsed = false }: AdminSidebarProps)
     <div className="flex flex-col h-full bg-white">
       {/* Logo */}
       <Link href="/admin" className="flex items-center gap-2 px-6 py-5 border-b hover:bg-gray-50 transition-colors">
-        <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center flex-shrink-0">
-          <Shield className="w-5 h-5 text-white" />
-        </div>
+        <Logo size={32} className="flex-shrink-0" />
         {!collapsed && (
           <span className="font-semibold text-lg">OfficeTest Admin</span>
         )}

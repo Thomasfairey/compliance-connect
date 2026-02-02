@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Outer teal ring (stroke) -->
+  <circle cx="50" cy="50" r="47" fill="none" stroke="#0097A7" stroke-width="4"/>
+
+  <!-- Inner teal circle -->
+  <circle cx="50" cy="50" r="36" fill="#0097A7"/>
+
+  <!-- White ring (gap between outer ring and inner circle) -->
+  <!-- This is created by the space between the outer stroke and inner circle -->
+
+  <!-- White "T" that extends down to merge with the white ring -->
+  <!-- The T crossbar -->
+  <rect x="30" y="28" width="40" height="10" fill="#FFFFFF"/>
+
+  <!-- The T vertical stem - extends down to meet the white ring at radius 36 -->
+  <rect x="45" y="28" width="10" height="36" fill="#FFFFFF"/>
+</svg>

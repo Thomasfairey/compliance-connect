@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Shield, AlertCircle, Building2, Wrench } from "lucide-react";
+import { Loader2, AlertCircle, Building2, Wrench } from "lucide-react";
+import { Logo } from "@/components/ui/logo";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -90,7 +91,7 @@ export default function SignupPage() {
         {/* Logo */}
         <div className="text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <Shield className="h-10 w-10 text-blue-600" />
+            <Logo size={40} />
             <span className="text-2xl font-bold text-gray-900">Compliance Connect</span>
           </div>
           <p className="text-gray-600">Create your account</p>

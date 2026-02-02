@@ -9,7 +9,6 @@ import {
   Calendar,
   Building2,
   Menu,
-  Shield,
   Users,
   Settings,
   ClipboardList,
@@ -18,6 +17,7 @@ import {
   LogOut,
   User,
 } from "lucide-react";
+import { Logo } from "@/components/ui/logo";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { AdminSidebar } from "@/components/admin/admin-sidebar";
 import { QuickActionsMenu } from "@/components/admin/quick-actions-menu";
@@ -161,9 +161,7 @@ export function DashboardLayout({
           <div className="flex flex-col flex-grow bg-white pt-5 pb-4 overflow-y-auto">
             {/* Logo */}
             <Link href="/dashboard" className="flex items-center gap-2 px-6 mb-8 hover:opacity-80 transition-opacity">
-              <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
-                <Shield className="w-5 h-5 text-white" />
-              </div>
+              <Logo size={32} />
               <span className="font-semibold text-lg">Compliance Connect</span>
             </Link>
 
@@ -205,9 +203,7 @@ export function DashboardLayout({
       <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200">
         <div className="flex items-center justify-between h-16 px-4">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
-              <Shield className="w-5 h-5 text-white" />
-            </div>
+            <Logo size={32} />
             <span className="font-semibold">Compliance Connect</span>
           </Link>
 

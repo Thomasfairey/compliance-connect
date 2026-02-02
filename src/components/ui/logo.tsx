@@ -1,0 +1,25 @@
+interface LogoProps {
+  size?: number;
+  className?: string;
+}
+
+export function Logo({ size = 32, className = "" }: LogoProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 100 100"
+      width={size}
+      height={size}
+      className={className}
+    >
+      {/* Outer teal ring */}
+      <circle cx="50" cy="50" r="47" fill="none" stroke="#0097A7" strokeWidth="4"/>
+      {/* Inner teal circle */}
+      <circle cx="50" cy="50" r="36" fill="#0097A7"/>
+      {/* White T - crossbar */}
+      <rect x="30" y="28" width="40" height="10" fill="#FFFFFF"/>
+      {/* White T - stem extending to white ring */}
+      <rect x="45" y="28" width="10" height="36" fill="#FFFFFF"/>
+    </svg>
+  );
+}
