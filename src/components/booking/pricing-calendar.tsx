@@ -17,13 +17,7 @@ import {
 import { ChevronLeft, ChevronRight, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { getDateRangeDiscounts } from "@/lib/actions";
-
-type DayDiscount = {
-  date: string;
-  discountPercent: number;
-  discountReason?: string;
-};
+import { getDateRangeDiscounts, type DatePricing } from "@/lib/actions";
 
 type PricingCalendarProps = {
   selected?: Date;
@@ -34,6 +28,15 @@ type PricingCalendarProps = {
   disabled?: (date: Date) => boolean;
 };
 
+function formatPrice(amount: number): string {
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
 export function PricingCalendar({
   selected,
   onSelect,
@@ -43,19 +46,19 @@ export function PricingCalendar({
   disabled,
 }: PricingCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [discounts, setDiscounts] = useState<Map<string, DayDiscount>>(new Map());
+  const [pricing, setPricing] = useState<Map<string, DatePricing>>(new Map());
   const [loading, setLoading] = useState(false);
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
 
   const today = startOfDay(new Date());
 
-  // Fetch discounts for visible month
+  // Fetch pricing for visible month
   useEffect(() => {
     let cancelled = false;
 
-    async function fetchDiscounts() {
+    async function fetchPricing() {
       if (!serviceId || !siteId || !estimatedQty) {
-        setDiscounts(new Map());
+        setPricing(new Map());
         return;
       }
 
@@ -73,21 +76,21 @@ export function PricingCalendar({
         );
 
         if (!cancelled) {
-          const discountMap = new Map<string, DayDiscount>();
+          const pricingMap = new Map<string, DatePricing>();
           results.forEach((r) => {
-            discountMap.set(r.date, r);
+            pricingMap.set(r.date, r);
           });
-          setDiscounts(discountMap);
+          setPricing(pricingMap);
         }
       } catch (error) {
-        console.error("Failed to fetch discounts:", error);
+        console.error("Failed to fetch pricing:", error);
       }
       if (!cancelled) {
         setLoading(false);
       }
     }
 
-    fetchDiscounts();
+    fetchPricing();
 
     return () => {
       cancelled = true;
@@ -130,7 +133,7 @@ export function PricingCalendar({
     return "hover:bg-muted/50";
   };
 
-  const hoveredDiscount = hoveredDate ? discounts.get(hoveredDate) : null;
+  const hoveredPricing = hoveredDate ? pricing.get(hoveredDate) : null;
 
   return (
     <div className="space-y-4">
@@ -156,7 +159,7 @@ export function PricingCalendar({
       {loading && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
-          <span>Checking for discounts...</span>
+          <span>Loading prices...</span>
         </div>
       )}
 
@@ -165,15 +168,15 @@ export function PricingCalendar({
         <div className="flex flex-wrap gap-4 text-sm">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-green-500" />
-            <span>50% off</span>
+            <span>Best price (50% off)</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-green-400" />
-            <span>25% off</span>
+            <span>Great price (25% off)</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-amber-400" />
-            <span>10% off</span>
+            <span>Good price (10% off)</span>
           </div>
         </div>
       )}
@@ -198,7 +201,7 @@ export function PricingCalendar({
             <div key={weekIndex} className="grid grid-cols-7 divide-x">
               {week.map((dayDate) => {
                 const dateStr = format(dayDate, "yyyy-MM-dd");
-                const discount = discounts.get(dateStr);
+                const dayPricing = pricing.get(dateStr);
                 const isCurrentMonth = isSameMonth(dayDate, currentMonth);
                 const isSelected = selected && isSameDay(dayDate, selected);
                 const isToday = isSameDay(dayDate, today);
@@ -214,9 +217,9 @@ export function PricingCalendar({
                     onMouseEnter={() => setHoveredDate(dateStr)}
                     onMouseLeave={() => setHoveredDate(null)}
                     className={cn(
-                      "relative h-16 p-1 transition-all text-left",
+                      "relative h-20 p-1 transition-all text-left flex flex-col",
                       !isCurrentMonth && "text-muted-foreground/40 bg-muted/20",
-                      isCurrentMonth && !isDisabled && getDiscountBgColor(discount?.discountPercent || 0),
+                      isCurrentMonth && !isDisabled && getDiscountBgColor(dayPricing?.discountPercent || 0),
                       isDisabled && "cursor-not-allowed opacity-50",
                       isSelected && "ring-2 ring-primary ring-inset bg-primary/10",
                       isToday && !isSelected && "ring-1 ring-primary/50 ring-inset"
@@ -232,17 +235,25 @@ export function PricingCalendar({
                       {format(dayDate, "d")}
                     </span>
 
-                    {/* Discount indicator */}
-                    {discount && discount.discountPercent > 0 && isCurrentMonth && !isDisabled && (
-                      <div className="absolute bottom-1 right-1">
+                    {/* Price display */}
+                    {dayPricing && isCurrentMonth && !isDisabled && (
+                      <div className="mt-auto">
                         <div
                           className={cn(
-                            "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white",
-                            getDiscountColor(discount.discountPercent)
+                            "text-xs font-semibold",
+                            dayPricing.discountPercent >= 50 && "text-green-700",
+                            dayPricing.discountPercent >= 25 && dayPricing.discountPercent < 50 && "text-green-600",
+                            dayPricing.discountPercent >= 10 && dayPricing.discountPercent < 25 && "text-amber-600",
+                            dayPricing.discountPercent === 0 && "text-gray-600"
                           )}
                         >
-                          {discount.discountPercent}
+                          {formatPrice(dayPricing.discountedPrice)}
                         </div>
+                        {dayPricing.discountPercent > 0 && (
+                          <div className="text-[10px] text-muted-foreground line-through">
+                            {formatPrice(dayPricing.originalPrice)}
+                          </div>
+                        )}
                       </div>
                     )}
                   </button>
@@ -253,28 +264,50 @@ export function PricingCalendar({
         </div>
       </div>
 
-      {/* Hovered discount info */}
-      {hoveredDiscount && hoveredDiscount.discountPercent > 0 && (
-        <div className="p-3 rounded-lg bg-green-50 border border-green-200 animate-in fade-in duration-200">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-green-600" />
-            <span className="font-medium text-green-800">
-              {hoveredDiscount.discountPercent}% Discount Available
-            </span>
+      {/* Hovered pricing info */}
+      {hoveredPricing && (
+        <div className={cn(
+          "p-3 rounded-lg animate-in fade-in duration-200",
+          hoveredPricing.discountPercent > 0
+            ? "bg-green-50 border border-green-200"
+            : "bg-muted/50 border"
+        )}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {hoveredPricing.discountPercent > 0 && (
+                <Sparkles className="h-4 w-4 text-green-600" />
+              )}
+              <span className={cn(
+                "font-medium",
+                hoveredPricing.discountPercent > 0 ? "text-green-800" : "text-gray-700"
+              )}>
+                {formatPrice(hoveredPricing.discountedPrice)}
+                {hoveredPricing.discountPercent > 0 && (
+                  <span className="ml-2 text-sm">
+                    ({hoveredPricing.discountPercent}% off)
+                  </span>
+                )}
+              </span>
+            </div>
+            {hoveredPricing.discountPercent > 0 && (
+              <span className="text-sm text-muted-foreground line-through">
+                {formatPrice(hoveredPricing.originalPrice)}
+              </span>
+            )}
           </div>
-          {hoveredDiscount.discountReason && (
+          {hoveredPricing.discountReason && (
             <p className="text-sm text-green-700 mt-1">
-              {hoveredDiscount.discountReason}
+              {hoveredPricing.discountReason}
             </p>
           )}
         </div>
       )}
 
-      {/* Selected date discount */}
+      {/* Selected date pricing */}
       {selected && !hoveredDate && (
         <SelectedDateInfo
           date={selected}
-          discount={discounts.get(format(selected, "yyyy-MM-dd"))}
+          pricing={pricing.get(format(selected, "yyyy-MM-dd"))}
         />
       )}
     </div>
@@ -283,24 +316,34 @@ export function PricingCalendar({
 
 function SelectedDateInfo({
   date,
-  discount,
+  pricing: dayPricing,
 }: {
   date: Date;
-  discount?: DayDiscount;
+  pricing?: DatePricing;
 }) {
-  if (!discount) return null;
+  if (!dayPricing) return null;
 
-  if (discount.discountPercent > 0) {
+  if (dayPricing.discountPercent > 0) {
     return (
       <div className="p-4 rounded-lg bg-green-50 border border-green-200">
-        <div className="flex items-center gap-2 mb-1">
-          <Sparkles className="h-5 w-5 text-green-600" />
-          <span className="font-semibold text-green-800">
-            {discount.discountPercent}% Discount on {format(date, "EEEE, d MMMM")}!
-          </span>
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-green-600" />
+            <span className="font-semibold text-green-800">
+              {formatPrice(dayPricing.discountedPrice)} on {format(date, "EEEE, d MMMM")}
+            </span>
+          </div>
+          <div className="text-right">
+            <span className="text-sm text-green-600 font-medium">
+              Save {dayPricing.discountPercent}%
+            </span>
+            <span className="text-sm text-muted-foreground line-through ml-2">
+              {formatPrice(dayPricing.originalPrice)}
+            </span>
+          </div>
         </div>
-        {discount.discountReason && (
-          <p className="text-sm text-green-700">{discount.discountReason}</p>
+        {dayPricing.discountReason && (
+          <p className="text-sm text-green-700">{dayPricing.discountReason}</p>
         )}
       </div>
     );
@@ -308,8 +351,14 @@ function SelectedDateInfo({
 
   return (
     <div className="p-3 rounded-lg bg-muted/50 border">
-      <p className="text-sm text-muted-foreground">
-        No discounts available for {format(date, "EEEE, d MMMM")}
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium">
+          {format(date, "EEEE, d MMMM")}
+        </span>
+        <span className="font-semibold">{formatPrice(dayPricing.discountedPrice)}</span>
+      </div>
+      <p className="text-sm text-muted-foreground mt-1">
+        Standard price - check nearby dates for potential discounts
       </p>
     </div>
   );

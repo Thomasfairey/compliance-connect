@@ -455,6 +455,53 @@ export async function getEngineerAvailability(
   }));
 }
 
+// Initialize availability for an engineer profile (4 weeks of working days)
+async function initializeEngineerAvailability(profileId: string): Promise<void> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const availabilityRecords: { engineerProfileId: string; date: Date; slot: string; isAvailable: boolean }[] = [];
+
+  // Create availability for the next 4 weeks (weekdays only)
+  for (let i = 0; i < 28; i++) {
+    const date = new Date(today);
+    date.setDate(date.getDate() + i);
+
+    // Skip weekends (0 = Sunday, 6 = Saturday)
+    const dayOfWeek = date.getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+
+    // Add AM and PM slots as available
+    availabilityRecords.push({
+      engineerProfileId: profileId,
+      date: new Date(date),
+      slot: "AM",
+      isAvailable: true,
+    });
+    availabilityRecords.push({
+      engineerProfileId: profileId,
+      date: new Date(date),
+      slot: "PM",
+      isAvailable: true,
+    });
+  }
+
+  // Bulk create, skipping conflicts
+  for (const record of availabilityRecords) {
+    await db.engineerAvailability.upsert({
+      where: {
+        engineerProfileId_date_slot: {
+          engineerProfileId: record.engineerProfileId,
+          date: record.date,
+          slot: record.slot,
+        },
+      },
+      update: {}, // Don't overwrite existing records
+      create: record,
+    });
+  }
+}
+
 // Admin: Setup engineer for auto-allocation
 // This approves the engineer and adds all competencies + broad UK coverage
 export async function setupEngineerForAutoAllocation(
@@ -479,6 +526,9 @@ export async function setupEngineerForAutoAllocation(
           bio: "Experienced compliance testing engineer",
         },
       });
+
+      // Initialize availability for new profile
+      await initializeEngineerAvailability(profile.id);
     } else {
       // Update to approved
       await db.engineerProfile.update({
@@ -488,6 +538,15 @@ export async function setupEngineerForAutoAllocation(
           approvedAt: new Date(),
         },
       });
+
+      // Initialize availability if not already set
+      const existingAvailability = await db.engineerAvailability.count({
+        where: { engineerProfileId: profile.id },
+      });
+
+      if (existingAvailability === 0) {
+        await initializeEngineerAvailability(profile.id);
+      }
     }
 
     // Get all active services
@@ -595,6 +654,221 @@ export async function setupAllEngineersForAutoAllocation(): Promise<{
       success: false,
       count: 0,
       error: error instanceof Error ? error.message : "Failed to setup engineers",
+    };
+  }
+}
+
+// Admin: Get all engineers with their availability for a date range
+export type EngineerWithAvailability = {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  status: EngineerStatus;
+  availability: { date: Date; slot: string; isAvailable: boolean }[];
+  bookings: { date: Date; slot: string; serviceId: string; serviceName: string }[];
+};
+
+export async function getEngineersAvailability(
+  startDate: Date,
+  endDate: Date
+): Promise<EngineerWithAvailability[]> {
+  await requireRole(["ADMIN"]);
+
+  const profiles = await db.engineerProfile.findMany({
+    where: { status: "APPROVED" },
+    include: {
+      user: { select: { id: true, name: true, email: true } },
+      availability: {
+        where: {
+          date: { gte: startDate, lte: endDate },
+        },
+      },
+    },
+    orderBy: { user: { name: "asc" } },
+  });
+
+  // Get bookings for each engineer in the date range
+  const bookings = await db.booking.findMany({
+    where: {
+      engineerId: { in: profiles.map((p) => p.userId) },
+      scheduledDate: { gte: startDate, lte: endDate },
+      status: { notIn: ["CANCELLED", "DECLINED"] },
+    },
+    include: { service: { select: { name: true } } },
+  });
+
+  return profiles.map((profile) => ({
+    id: profile.id,
+    userId: profile.userId,
+    name: profile.user.name,
+    email: profile.user.email,
+    status: profile.status,
+    availability: profile.availability.map((a) => ({
+      date: a.date,
+      slot: a.slot,
+      isAvailable: a.isAvailable,
+    })),
+    bookings: bookings
+      .filter((b) => b.engineerId === profile.userId)
+      .map((b) => ({
+        date: b.scheduledDate!,
+        slot: b.slot,
+        serviceId: b.serviceId,
+        serviceName: b.service.name,
+      })),
+  }));
+}
+
+// Admin: Set availability for a specific engineer
+export async function setEngineerAvailabilityAdmin(
+  engineerProfileId: string,
+  dates: { date: Date; slot: string; isAvailable: boolean }[]
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await requireRole(["ADMIN"]);
+
+    // Verify engineer exists
+    const profile = await db.engineerProfile.findUnique({
+      where: { id: engineerProfileId },
+    });
+
+    if (!profile) {
+      return { success: false, error: "Engineer profile not found" };
+    }
+
+    // Upsert availability records
+    for (const item of dates) {
+      await db.engineerAvailability.upsert({
+        where: {
+          engineerProfileId_date_slot: {
+            engineerProfileId,
+            date: item.date,
+            slot: item.slot,
+          },
+        },
+        update: { isAvailable: item.isAvailable },
+        create: {
+          engineerProfileId,
+          date: item.date,
+          slot: item.slot,
+          isAvailable: item.isAvailable,
+        },
+      });
+    }
+
+    revalidatePath("/admin/engineers/availability");
+    revalidatePath("/admin/scheduling/calendar");
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error setting engineer availability:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to set availability",
+    };
+  }
+}
+
+// Admin: Block time off for an engineer
+export async function blockEngineerTimeOff(
+  engineerProfileId: string,
+  startDate: Date,
+  endDate: Date,
+  reason?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await requireRole(["ADMIN"]);
+
+    // Verify engineer exists
+    const profile = await db.engineerProfile.findUnique({
+      where: { id: engineerProfileId },
+    });
+
+    if (!profile) {
+      return { success: false, error: "Engineer profile not found" };
+    }
+
+    // Create blocked availability for each day in range
+    const current = new Date(startDate);
+    current.setHours(0, 0, 0, 0);
+    const end = new Date(endDate);
+    end.setHours(0, 0, 0, 0);
+
+    while (current <= end) {
+      // Block both AM and PM slots
+      for (const slot of ["AM", "PM"]) {
+        await db.engineerAvailability.upsert({
+          where: {
+            engineerProfileId_date_slot: {
+              engineerProfileId,
+              date: new Date(current),
+              slot,
+            },
+          },
+          update: {
+            isAvailable: false,
+            calendarEventTitle: reason || "Time Off",
+          },
+          create: {
+            engineerProfileId,
+            date: new Date(current),
+            slot,
+            isAvailable: false,
+            calendarEventTitle: reason || "Time Off",
+          },
+        });
+      }
+      current.setDate(current.getDate() + 1);
+    }
+
+    revalidatePath("/admin/engineers/availability");
+    revalidatePath("/admin/scheduling/calendar");
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error blocking time off:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to block time off",
+    };
+  }
+}
+
+// Admin: Initialize availability for all approved engineers
+export async function initializeAllEngineersAvailability(): Promise<{
+  success: boolean;
+  count: number;
+  error?: string;
+}> {
+  try {
+    await requireRole(["ADMIN"]);
+
+    const profiles = await db.engineerProfile.findMany({
+      where: { status: "APPROVED" },
+    });
+
+    let count = 0;
+    for (const profile of profiles) {
+      const existingCount = await db.engineerAvailability.count({
+        where: { engineerProfileId: profile.id },
+      });
+
+      if (existingCount === 0) {
+        await initializeEngineerAvailability(profile.id);
+        count++;
+      }
+    }
+
+    revalidatePath("/admin/engineers/availability");
+
+    return { success: true, count };
+  } catch (error) {
+    console.error("Error initializing availability:", error);
+    return {
+      success: false,
+      count: 0,
+      error: error instanceof Error ? error.message : "Failed to initialize availability",
     };
   }
 }

@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { UtilizationCard } from "@/components/admin/utilization-card";
 import { JobsByCategoryCard } from "@/components/admin/jobs-by-category-card";
 import { GeographicSalesCard } from "@/components/admin/geographic-sales-card";
+import { TravelTimeCard } from "@/components/admin/travel-time-card";
 import { getAdminDashboardAnalytics } from "@/lib/actions/admin-analytics";
 import { format, startOfDay, endOfDay, subDays } from "date-fns";
 import {
@@ -28,6 +29,8 @@ import {
   Zap,
   Download,
   Bell,
+  Car,
+  Receipt,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -212,7 +215,7 @@ export default async function AdminDashboardPage() {
       )}
 
       {/* Quick Stats Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <MetricCard
           title="Jobs Today"
           value={analytics.quickStats.todayJobs}
@@ -227,6 +230,14 @@ export default async function AdminDashboardPage() {
           icon={PoundSterling}
           href="/admin/reports"
           className="bg-green-50 border-green-100"
+        />
+        <MetricCard
+          title="Avg Job Price"
+          value={formatCurrency(analytics.quickStats.averageJobPrice)}
+          change={analytics.quickStats.averageJobPriceChange}
+          icon={Receipt}
+          href="/admin/reports/revenue"
+          className="bg-purple-50 border-purple-100"
         />
         <MetricCard
           title="Pending Allocation"
@@ -245,8 +256,9 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
         <UtilizationCard data={analytics.utilization} />
+        <TravelTimeCard data={analytics.travelTime} />
         <JobsByCategoryCard data={analytics.jobsByCategory} />
         <GeographicSalesCard data={analytics.geographic} />
       </div>

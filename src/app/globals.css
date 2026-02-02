@@ -139,8 +139,9 @@
   background: linear-gradient(135deg, oklch(0.15 0.03 255) 0%, oklch(0.12 0.04 270) 50%, oklch(0.1 0.02 255) 100%);
 }
 
+/* Accent gradient - softer blue for CTAs */
 .gradient-accent {
-  background: linear-gradient(135deg, oklch(0.8 0.16 75), oklch(0.75 0.2 50));
+  background: linear-gradient(135deg, oklch(0.55 0.20 255), oklch(0.50 0.22 270));
 }
 
 .gradient-card {
@@ -156,16 +157,17 @@
   box-shadow: 0 0 40px oklch(0.8 0.16 75 / 0.3);
 }
 
-/* Text gradients */
+/* Text gradients - using consistent blue tones for professional look */
 .text-gradient-primary {
-  background: linear-gradient(135deg, oklch(0.55 0.22 255), oklch(0.65 0.25 280));
+  background: linear-gradient(135deg, oklch(0.55 0.22 255), oklch(0.50 0.20 270));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
+/* Accent text now uses same blue family for cohesive design */
 .text-gradient-accent {
-  background: linear-gradient(135deg, oklch(0.8 0.16 75), oklch(0.75 0.2 50));
+  background: linear-gradient(135deg, oklch(0.6 0.2 250), oklch(0.55 0.22 265));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -183,7 +185,7 @@
   position: absolute;
   inset: -2px;
   border-radius: inherit;
-  background: linear-gradient(135deg, oklch(0.55 0.22 255), oklch(0.8 0.16 75), oklch(0.55 0.22 255));
+  background: linear-gradient(135deg, oklch(0.55 0.22 255), oklch(0.50 0.20 270), oklch(0.55 0.22 255));
   background-size: 200% 200%;
   animation: gradient-rotate 3s ease infinite;
   z-index: -1;

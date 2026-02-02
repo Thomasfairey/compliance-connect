@@ -75,9 +75,22 @@ export function QuickActionsMenu() {
       case "runOptimization":
         toast.info("Running route optimization...");
         try {
-          // TODO: Call optimization API
-          await new Promise((resolve) => setTimeout(resolve, 1500));
-          toast.success("Optimization complete");
+          const response = await fetch("/api/admin/optimize", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            toast.success(
+              `Optimized ${data.optimizedCount} routes, saving ~${data.totalKmSaved} km`
+            );
+            router.refresh();
+          } else {
+            toast.error(data.error || "Optimization failed");
+          }
         } catch {
           toast.error("Optimization failed");
         }

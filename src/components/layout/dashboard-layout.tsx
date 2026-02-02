@@ -15,7 +15,9 @@ import {
   ClipboardList,
   Package,
   CheckCircle2,
+  LogOut,
 } from "lucide-react";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { AdminSidebar } from "@/components/admin/admin-sidebar";
 import { QuickActionsMenu } from "@/components/admin/quick-actions-menu";
@@ -73,13 +75,29 @@ export function DashboardLayout({
   const isAdmin = userRole === "ADMIN";
 
   const NavLink = ({ item }: { item: (typeof customerNavItems)[0] }) => {
-    const isActive =
-      pathname === item.href ||
-      (item.href !== "/dashboard" &&
-        item.href !== "/engineer" &&
-        item.href !== "/admin" &&
-        pathname.startsWith(item.href));
+    // Check for exact match first
+    if (pathname === item.href) {
+      return renderNavLink(item, true);
+    }
 
+    // Special handling for parent/child routes to prevent both being active
+    // e.g., /bookings and /bookings/bundles should not both be active
+    const isParentRoute = item.href === "/bookings" && pathname.startsWith("/bookings/");
+    if (isParentRoute) {
+      return renderNavLink(item, false);
+    }
+
+    // For other routes, use startsWith for nested routes
+    const isActive =
+      item.href !== "/dashboard" &&
+      item.href !== "/engineer" &&
+      item.href !== "/admin" &&
+      pathname.startsWith(item.href);
+
+    return renderNavLink(item, isActive);
+  };
+
+  const renderNavLink = (item: (typeof customerNavItems)[0], isActive: boolean) => {
     return (
       <Link
         href={item.href}
@@ -108,12 +126,12 @@ export function DashboardLayout({
           // Standard sidebar for customers/engineers
           <div className="flex flex-col flex-grow bg-white pt-5 pb-4 overflow-y-auto">
             {/* Logo */}
-            <div className="flex items-center gap-2 px-6 mb-8">
+            <Link href="/dashboard" className="flex items-center gap-2 px-6 mb-8 hover:opacity-80 transition-opacity">
               <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
                 <Shield className="w-5 h-5 text-white" />
               </div>
               <span className="font-semibold text-lg">OfficeTest On Demand</span>
-            </div>
+            </Link>
 
             {/* Navigation */}
             <nav className="flex-1 px-4 space-y-1">
@@ -124,7 +142,7 @@ export function DashboardLayout({
 
             {/* User section */}
             <div className="px-4 py-4 border-t border-gray-100">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 mb-3">
                 <UserButton
                   afterSignOutUrl="/"
                   appearance={{
@@ -142,6 +160,11 @@ export function DashboardLayout({
                   </p>
                 </div>
               </div>
+              <SignOutButton
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start text-gray-500 hover:text-red-600 hover:bg-red-50"
+              />
             </div>
           </div>
         )}
@@ -189,6 +212,12 @@ export function DashboardLayout({
                       <NavLink key={item.href} item={item} />
                     ))}
                   </nav>
+                  <div className="border-t p-4">
+                    <SignOutButton
+                      variant="outline"
+                      className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+                    />
+                  </div>
                 </div>
               </SheetContent>
             </Sheet>

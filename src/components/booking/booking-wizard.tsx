@@ -20,6 +20,7 @@ import {
   Package,
   Sparkles,
   Timer,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -40,6 +41,7 @@ interface BookingWizardProps {
   services: Service[];
   sites: Site[];
   initialSiteId?: string;
+  initialServiceId?: string;
 }
 
 const serviceIcons: Record<string, typeof Zap> = {
@@ -79,16 +81,36 @@ type PricingInfo = {
   discountReason?: string;
 } | null;
 
-export function BookingWizard({ services, sites: initialSites, initialSiteId }: BookingWizardProps) {
+export function BookingWizard({ services, sites: initialSites, initialSiteId, initialServiceId }: BookingWizardProps) {
   const router = useRouter();
   const isMobile = useIsMobile();
-  const [currentStep, setCurrentStep] = useState(0);
+
+  // Calculate initial step based on pre-filled data
+  const getInitialStep = () => {
+    const hasService = initialServiceId && services.some(s => s.id === initialServiceId);
+    const hasSite = initialSiteId && initialSites.some(s => s.id === initialSiteId);
+
+    if (hasService && hasSite) {
+      return 2; // Skip to details step
+    } else if (hasService) {
+      return 1; // Skip to site selection
+    }
+    return 0;
+  };
+
+  const [currentStep, setCurrentStep] = useState(getInitialStep);
   const [direction, setDirection] = useState(0);
   const [data, setData] = useState<BookingWizardData>(() => {
-    if (initialSiteId && initialSites.some(s => s.id === initialSiteId)) {
-      return { siteId: initialSiteId };
+    const initialData: BookingWizardData = {};
+
+    if (initialServiceId && services.some(s => s.id === initialServiceId)) {
+      initialData.serviceId = initialServiceId;
     }
-    return {};
+    if (initialSiteId && initialSites.some(s => s.id === initialSiteId)) {
+      initialData.siteId = initialSiteId;
+    }
+
+    return initialData;
   });
   const [sites, setSites] = useState(initialSites);
   const [loading, setLoading] = useState(false);
@@ -104,6 +126,9 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
   // Dynamic pricing state
   const [pricingInfo, setPricingInfo] = useState<PricingInfo>(null);
   const [loadingPricing, setLoadingPricing] = useState(false);
+
+  // Validation error state
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const selectedService = services.find((s) => s.id === data.serviceId);
   const selectedSite = sites.find((s) => s.id === data.siteId);
@@ -172,10 +197,41 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
     }
   }, [currentStep, data]);
 
+  // Clear validation error when user makes a valid selection
+  useEffect(() => {
+    if (validationError && canProceed()) {
+      setValidationError(null);
+    }
+  }, [data, validationError, canProceed]);
+
+  const getValidationMessage = (): string => {
+    switch (steps[currentStep].id) {
+      case "service":
+        return "Please select a service to continue";
+      case "site":
+        return "Please select a site to continue";
+      case "details":
+        return "Please enter the number of items to test";
+      case "schedule":
+        if (!data.scheduledDate) return "Please select a date";
+        if (!data.slot) return "Please select a time slot";
+        return "Please complete the schedule";
+      default:
+        return "Please complete this step";
+    }
+  };
+
   const goNext = () => {
-    if (canProceed() && currentStep < steps.length - 1) {
-      setDirection(1);
-      setCurrentStep((prev) => prev + 1);
+    if (canProceed()) {
+      if (currentStep < steps.length - 1) {
+        setValidationError(null);
+        setDirection(1);
+        setCurrentStep((prev) => prev + 1);
+      }
+    } else {
+      const message = getValidationMessage();
+      setValidationError(message);
+      toast.error(message);
     }
   };
 
@@ -293,6 +349,12 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
           <p className="text-sm text-muted-foreground">
             {steps[currentStep].description}
           </p>
+          {validationError && (
+            <div className="mt-3 flex items-center justify-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <span>{validationError}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -761,8 +823,10 @@ export function BookingWizard({ services, sites: initialSites, initialSiteId }: 
         ) : (
           <Button
             onClick={goNext}
-            disabled={!canProceed()}
-            className="h-12 px-8 gradient-primary text-white"
+            className={cn(
+              "h-12 px-8 text-white",
+              canProceed() ? "gradient-primary" : "bg-gray-400 hover:bg-gray-500"
+            )}
           >
             Continue
             <ChevronRight className="h-4 w-4 ml-2" />

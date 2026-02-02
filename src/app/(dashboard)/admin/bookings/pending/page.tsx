@@ -1,21 +1,13 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getOrCreateUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AdminPage } from "@/components/admin/admin-page-header";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Clock, AlertTriangle } from "lucide-react";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { formatDistanceToNow, format } from "date-fns";
-import { Clock, MapPin, AlertTriangle, Zap, ExternalLink } from "lucide-react";
+  PendingAllocationsClient,
+  BookingsTableClient,
+} from "@/components/admin/pending-allocations-client";
 
 export const dynamic = "force-dynamic";
 
@@ -23,14 +15,6 @@ export const metadata = {
   title: "Pending Allocation | Admin",
   description: "Bookings awaiting engineer assignment",
 };
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "GBP",
-    minimumFractionDigits: 0,
-  }).format(amount);
-}
 
 export default async function PendingBookingsPage() {
   const user = await getOrCreateUser();
@@ -87,12 +71,7 @@ export default async function PendingBookingsPage() {
     <AdminPage
       title="Pending Allocation"
       description={`${pendingBookings.length} bookings awaiting engineer assignment`}
-      actions={
-        <Button>
-          <Zap className="w-4 h-4 mr-2" />
-          Auto-Allocate All
-        </Button>
-      }
+      actions={<PendingAllocationsClient bookings={pendingBookings} />}
     >
       {/* Urgency Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -132,7 +111,11 @@ export default async function PendingBookingsPage() {
             <AlertTriangle className="w-5 h-5" />
             Urgent - Needs Immediate Attention
           </h2>
-          <BookingsTable bookings={urgent} />
+          <Card>
+            <CardContent className="p-0">
+              <BookingsTableClient bookings={urgent} />
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -143,7 +126,11 @@ export default async function PendingBookingsPage() {
             <Clock className="w-5 h-5" />
             This Week
           </h2>
-          <BookingsTable bookings={thisWeek} />
+          <Card>
+            <CardContent className="p-0">
+              <BookingsTableClient bookings={thisWeek} />
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -151,7 +138,11 @@ export default async function PendingBookingsPage() {
       {later.length > 0 && (
         <div className="mb-8">
           <h2 className="text-lg font-semibold mb-3">Next Week & Beyond</h2>
-          <BookingsTable bookings={later} />
+          <Card>
+            <CardContent className="p-0">
+              <BookingsTableClient bookings={later} />
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -159,7 +150,11 @@ export default async function PendingBookingsPage() {
       {noDate.length > 0 && (
         <div className="mb-8">
           <h2 className="text-lg font-semibold text-gray-600 mb-3">No Date Set</h2>
-          <BookingsTable bookings={noDate} />
+          <Card>
+            <CardContent className="p-0">
+              <BookingsTableClient bookings={noDate} />
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -177,78 +172,5 @@ export default async function PendingBookingsPage() {
         </Card>
       )}
     </AdminPage>
-  );
-}
-
-function BookingsTable({ bookings }: { bookings: any[] }) {
-  return (
-    <Card>
-      <CardContent className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Reference</TableHead>
-              <TableHead>Service</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Location</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {bookings.map((booking) => (
-              <TableRow key={booking.id}>
-                <TableCell className="font-mono text-sm">
-                  {booking.reference}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline">{booking.service.name}</Badge>
-                </TableCell>
-                <TableCell>
-                  <div>
-                    <div className="font-medium">{booking.customer.name}</div>
-                    <div className="text-sm text-gray-500">
-                      {booking.customer.companyName}
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1 text-gray-600">
-                    <MapPin className="w-4 h-4" />
-                    {booking.site.postcode}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  {booking.scheduledDate ? (
-                    <div>
-                      <div>{format(new Date(booking.scheduledDate), "EEE, MMM d")}</div>
-                      <div className="text-sm text-gray-500">{booking.slot}</div>
-                    </div>
-                  ) : (
-                    <span className="text-gray-400">Not set</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {formatCurrency(booking.price || 0)}
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <Button size="sm" variant="outline">
-                      Allocate
-                    </Button>
-                    <Link href={`/admin/bookings/${booking.id}`}>
-                      <Button size="sm" variant="ghost">
-                        <ExternalLink className="w-4 h-4" />
-                      </Button>
-                    </Link>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
   );
 }

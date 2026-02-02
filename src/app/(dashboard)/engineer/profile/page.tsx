@@ -265,16 +265,14 @@ export default async function EngineerProfilePage() {
           </CardContent>
         </Card>
 
-        {/* Availability - Desktop Only */}
-        <div className="hidden lg:block">
-          <AvailabilityCalendar
-            initialAvailability={availability}
-            calendarSyncs={profile.calendarSyncs.map((s) => ({
-              provider: s.provider,
-              lastSyncedAt: s.lastSyncedAt,
-            }))}
-          />
-        </div>
+        {/* Availability Calendar */}
+        <AvailabilityCalendar
+          initialAvailability={availability}
+          calendarSyncs={profile.calendarSyncs.map((s) => ({
+            provider: s.provider,
+            lastSyncedAt: s.lastSyncedAt,
+          }))}
+        />
       </div>
 
       {/* Bottom Navigation */}

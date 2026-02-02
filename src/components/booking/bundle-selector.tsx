@@ -127,12 +127,15 @@ function BundleCard({
 }: BundleCardProps) {
   const Icon = iconMap[bundle.icon || "Package"] || Package;
 
-  // Calculate min total price
+  // Calculate min total price and monthly equivalent
   const minTotal = bundle.items.reduce((sum, item) => {
     return sum + item.service.minCharge;
   }, 0);
 
   const discountedMin = minTotal * (1 - bundle.discountPercent / 100);
+
+  // Calculate monthly equivalent (annual services spread over 12 months)
+  const monthlyPrice = Math.ceil(discountedMin / 12);
 
   return (
     <Card
@@ -193,16 +196,20 @@ function BundleCard({
           </div>
         </div>
 
-        <div className="flex items-baseline justify-between pt-2 border-t">
-          <span className="text-xs text-gray-500">From</span>
-          <div className="text-right">
-            <span className="text-lg font-semibold text-gray-900">
-              {formatPrice(discountedMin)}
-            </span>
-            <span className="text-sm text-gray-400 line-through ml-2">
-              {formatPrice(minTotal)}
-            </span>
+        <div className="pt-2 border-t">
+          <div className="flex items-baseline justify-between">
+            <span className="text-xs text-gray-500">From</span>
+            <div className="text-right">
+              <span className="text-lg font-semibold text-gray-900">
+                {formatPrice(monthlyPrice)}
+              </span>
+              <span className="text-sm text-gray-500">/month</span>
+            </div>
           </div>
+          <p className="text-xs text-gray-400 text-right mt-1">
+            {formatPrice(discountedMin)} total/year
+            <span className="line-through ml-1">{formatPrice(minTotal)}</span>
+          </p>
         </div>
       </CardContent>
     </Card>

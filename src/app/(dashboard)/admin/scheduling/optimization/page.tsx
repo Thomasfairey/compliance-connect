@@ -1,21 +1,21 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getOrCreateUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AdminPage } from "@/components/admin/admin-page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format, addDays, startOfDay, endOfDay } from "date-fns";
+import { buildOptimizedRoute } from "@/lib/scheduling/v2/travel";
 import {
-  Zap,
+  RunOptimizationButton,
+  ReoptimizeButton,
+} from "@/components/admin/optimization-client";
+import {
   Route,
-  ArrowRight,
-  CheckCircle2,
   Clock,
   MapPin,
   TrendingUp,
-  RefreshCw,
+  Zap,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -62,23 +62,26 @@ export default async function OptimizationPage() {
     engineerRoutes.set(booking.engineerId, existing);
   });
 
-  const routeData = Array.from(engineerRoutes.entries()).map(([engineerId, bookings]) => ({
-    engineer: bookings[0].engineer!,
-    bookings,
-    estimatedKm: bookings.length * 15, // Placeholder
-    estimatedMinutes: bookings.length * 45, // Placeholder
-  }));
+  // Build optimized routes for each engineer
+  const routeData = await Promise.all(
+    Array.from(engineerRoutes.entries()).map(async ([engineerId, bookings]) => {
+      const optimizedRoute = await buildOptimizedRoute(engineerId, tomorrow);
+      return {
+        engineer: bookings[0].engineer!,
+        bookings,
+        optimizedRoute,
+        estimatedKm: optimizedRoute?.totalKm ?? bookings.length * 10,
+        estimatedMinutes: optimizedRoute?.totalTravelMinutes ?? bookings.length * 30,
+        efficiencyRating: optimizedRoute?.efficiencyRating ?? 70,
+      };
+    })
+  );
 
   return (
     <AdminPage
       title="Route Optimization"
       description="Optimize travel routes and improve efficiency"
-      actions={
-        <Button>
-          <Zap className="w-4 h-4 mr-2" />
-          Run Optimization
-        </Button>
-      }
+      actions={<RunOptimizationButton />}
     >
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -104,7 +107,15 @@ export default async function OptimizationPage() {
         </Card>
         <Card className="bg-green-50 border-green-100">
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-green-600">87%</div>
+            <div className="text-2xl font-bold text-green-600">
+              {routeData.length > 0
+                ? Math.round(
+                    routeData.reduce((sum, r) => sum + r.efficiencyRating, 0) /
+                      routeData.length
+                  )
+                : 0}
+              %
+            </div>
             <div className="text-sm text-gray-500">Efficiency Score</div>
           </CardContent>
         </Card>
@@ -133,14 +144,27 @@ export default async function OptimizationPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="bg-green-50 text-green-700 border-0">
+                    <Badge
+                      variant="outline"
+                      className={
+                        route.efficiencyRating >= 80
+                          ? "bg-green-50 text-green-700 border-0"
+                          : route.efficiencyRating >= 50
+                          ? "bg-yellow-50 text-yellow-700 border-0"
+                          : "bg-red-50 text-red-700 border-0"
+                      }
+                    >
                       <TrendingUp className="w-3 h-3 mr-1" />
-                      Optimized
+                      {route.efficiencyRating >= 80
+                        ? "Optimized"
+                        : route.efficiencyRating >= 50
+                        ? "Moderate"
+                        : "Needs Optimization"}
                     </Badge>
-                    <Button variant="outline" size="sm">
-                      <RefreshCw className="w-4 h-4 mr-1" />
-                      Re-optimize
-                    </Button>
+                    <ReoptimizeButton
+                      engineerId={route.engineer.id}
+                      date={tomorrow}
+                    />
                   </div>
                 </div>
               </CardHeader>
@@ -167,9 +191,9 @@ export default async function OptimizationPage() {
                           </span>
                         </div>
                       </div>
-                      {idx < route.bookings.length - 1 && (
+                      {idx < route.bookings.length - 1 && route.optimizedRoute?.stops[idx + 1] && (
                         <div className="text-xs text-gray-400">
-                          ~15 min travel
+                          ~{route.optimizedRoute.stops[idx + 1].travelFromPrevious} min ({route.optimizedRoute.stops[idx + 1].distanceFromPrevious} km)
                         </div>
                       )}
                     </div>

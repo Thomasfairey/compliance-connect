@@ -9,13 +9,29 @@ const isPublicRoute = createRouteMatcher([
   "/api/webhooks(.*)",
   "/api/auth(.*)",
   "/api/engineer/calendar/ical(.*)", // iCal feed is public (uses userId in URL)
+  // Clerk internal routes
+  "/.well-known(.*)",
+  "/sso-callback(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  if (!isPublicRoute(req)) {
+  // Skip protection for public routes
+  if (isPublicRoute(req)) {
+    return;
+  }
+
+  // Protect all other routes
+  try {
     await auth.protect({
       unauthenticatedUrl: new URL("/sign-in", req.url).toString(),
     });
+  } catch (error) {
+    // If auth.protect throws (which it shouldn't normally),
+    // redirect to sign-in instead of showing an error
+    console.error("Auth protection error:", error);
+    const signInUrl = new URL("/sign-in", req.url);
+    signInUrl.searchParams.set("redirect_url", req.url);
+    return Response.redirect(signInUrl.toString());
   }
 });
 

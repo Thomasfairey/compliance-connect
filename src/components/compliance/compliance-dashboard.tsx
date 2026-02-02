@@ -223,7 +223,7 @@ function ComplianceItem({ item }: { item: ComplianceStatus }) {
         </Button>
 
         <Link
-          href={`/bookings/new?siteId=${item.siteId}&serviceId=${item.serviceId}`}
+          href={`/bookings/new?siteId=${item.siteId}&serviceId=${item.serviceId}&bookingType=individual`}
         >
           <Button size="sm">
             Book Now

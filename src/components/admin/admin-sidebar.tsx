@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronRight, Shield, Users, Calendar, Clock } from "lucide-react";
+import { ChevronRight, Shield, Users, Calendar, Clock, LogOut } from "lucide-react";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import { cn } from "@/lib/utils";
 import { adminNavItems, type NavItem } from "./admin-nav-config";
 
@@ -53,14 +54,14 @@ export function AdminSidebar({ userName, collapsed = false }: AdminSidebarProps)
   return (
     <div className="flex flex-col h-full bg-white">
       {/* Logo */}
-      <div className="flex items-center gap-2 px-6 py-5 border-b">
+      <Link href="/admin" className="flex items-center gap-2 px-6 py-5 border-b hover:bg-gray-50 transition-colors">
         <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center flex-shrink-0">
           <Shield className="w-5 h-5 text-white" />
         </div>
         {!collapsed && (
           <span className="font-semibold text-lg">OfficeTest Admin</span>
         )}
-      </div>
+      </Link>
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
@@ -97,6 +98,13 @@ export function AdminSidebar({ userName, collapsed = false }: AdminSidebarProps)
               value="3"
               highlight
             />
+            <div className="pt-2 mt-2 border-t">
+              <SignOutButton
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start text-gray-500 hover:text-red-600 hover:bg-red-50"
+              />
+            </div>
           </div>
         )}
       </div>

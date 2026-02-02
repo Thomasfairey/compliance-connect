@@ -135,9 +135,29 @@ export async function POST(request: Request) {
       });
     }
 
-    // Store scoring weights in a system settings table
-    // For now, we'll log them since we'd need a separate table
-    console.log("Updated scoring weights:", weights);
+    // Store scoring weights as a special pricing rule
+    // Cast to JSON-compatible object for Prisma
+    const weightsJson = {
+      customer: weights.customer,
+      engineer: weights.engineer,
+      platform: weights.platform,
+    };
+
+    await db.pricingRule.upsert({
+      where: { slug: "scoring-weights" },
+      update: {
+        config: weightsJson,
+      },
+      create: {
+        slug: "scoring-weights",
+        type: "scoring_weights",
+        name: "Scoring Weights",
+        description: "Weights for customer, engineer, and platform scoring",
+        enabled: true,
+        config: weightsJson,
+        priority: 0,
+      },
+    });
 
     return NextResponse.json({
       success: true,
@@ -164,7 +184,21 @@ export async function GET() {
       orderBy: { priority: "asc" },
     });
 
-    return NextResponse.json({ pricingRules });
+    // Extract scoring weights from pricing rules
+    const scoringWeightsRule = pricingRules.find(
+      (rule) => rule.slug === "scoring-weights"
+    );
+    const scoringWeights = scoringWeightsRule?.config as ScoringWeights | null;
+
+    // Filter out the scoring weights from the pricing rules list
+    const filteredRules = pricingRules.filter(
+      (rule) => rule.slug !== "scoring-weights"
+    );
+
+    return NextResponse.json({
+      pricingRules: filteredRules,
+      scoringWeights,
+    });
   } catch (error) {
     console.error("Error fetching scheduling settings:", error);
     return NextResponse.json(

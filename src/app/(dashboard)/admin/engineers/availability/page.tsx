@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { getOrCreateUser } from "@/lib/auth";
 import { AdminPage } from "@/components/admin/admin-page-header";
-import { Card, CardContent } from "@/components/ui/card";
-import { Calendar } from "lucide-react";
+import { getEngineersAvailability, initializeAllEngineersAvailability } from "@/lib/actions/engineer";
+import { startOfWeek, endOfWeek, addDays, format } from "date-fns";
+import { AdminAvailabilityClient } from "@/components/admin/admin-availability-client";
+import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
@@ -11,27 +13,43 @@ export const metadata = {
   description: "Manage engineer schedules and availability",
 };
 
-export default async function EngineerAvailabilityPage() {
+export default async function EngineerAvailabilityPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ week?: string }>;
+}) {
   const user = await getOrCreateUser();
 
   if (user.role !== "ADMIN") {
     redirect("/dashboard");
   }
 
+  const params = await searchParams;
+
+  // Parse week from search params or use current week
+  const baseDate = params.week ? new Date(params.week) : new Date();
+  const weekStart = startOfWeek(baseDate, { weekStartsOn: 1 }); // Monday
+  const weekEnd = endOfWeek(baseDate, { weekStartsOn: 1 }); // Sunday
+
+  // Get all engineers with their availability
+  const engineers = await getEngineersAvailability(weekStart, weekEnd);
+
+  // Generate array of dates for the week
+  const weekDates: Date[] = [];
+  for (let i = 0; i < 7; i++) {
+    weekDates.push(addDays(weekStart, i));
+  }
+
   return (
     <AdminPage
       title="Engineer Availability"
-      description="View and manage engineer schedules"
+      description={`Week of ${format(weekStart, "MMM d")} - ${format(weekEnd, "MMM d, yyyy")}`}
     >
-      <Card>
-        <CardContent className="py-12 text-center text-gray-500">
-          <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-          <p className="font-medium">Availability Management</p>
-          <p className="text-sm mt-2">
-            Coming soon: View engineer calendars, manage time off, and set availability windows
-          </p>
-        </CardContent>
-      </Card>
+      <AdminAvailabilityClient
+        engineers={engineers}
+        weekDates={weekDates}
+        weekStart={weekStart}
+      />
     </AdminPage>
   );
 }

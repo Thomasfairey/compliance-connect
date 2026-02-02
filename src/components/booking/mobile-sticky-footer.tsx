@@ -78,8 +78,13 @@ export function MobileStickyFooter({
         ) : (
           <Button
             onClick={onNext}
-            disabled={!canProceed || loading}
-            className="flex-1 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold"
+            disabled={loading}
+            className={cn(
+              "flex-1 h-12 text-white font-semibold",
+              canProceed
+                ? "bg-gradient-to-r from-blue-600 to-indigo-600"
+                : "bg-gray-400"
+            )}
           >
             Continue
             <ChevronRight className="h-4 w-4 ml-2" />

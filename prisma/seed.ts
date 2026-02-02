@@ -595,42 +595,45 @@ async function main() {
   console.log(`✅ Created ${customers.length} customers and ${allSites.length} sites\n`);
 
   // =====================
-  // CREATE 250 BOOKINGS
+  // CREATE BOOKINGS - Dense in Feb, tapering through March/April 2026
   // =====================
-  console.log("📅 Creating 250 bookings...");
+  console.log("📅 Creating bookings with realistic Feb-April 2026 distribution...");
 
   const today = startOfDay(new Date());
-  const bookingStatuses: BookingStatus[] = ["COMPLETED", "COMPLETED", "COMPLETED", "COMPLETED", // 40%
-                                            "CONFIRMED", "CONFIRMED", // 20%
-                                            "PENDING", "PENDING", // 15%
-                                            "IN_PROGRESS", // 10%
-                                            "CANCELLED", // 10%
-                                            "CONFIRMED"]; // 5% provisional
+
+  // Helper to check if a date is a weekday (Mon-Fri)
+  function isWeekday(date: Date): boolean {
+    const day = date.getDay();
+    return day !== 0 && day !== 6; // Not Sunday (0) or Saturday (6)
+  }
+
+  // Generate working days for Feb, March, April 2026
+  function getWorkingDays(year: number, month: number): Date[] {
+    const days: Date[] = [];
+    const date = new Date(year, month - 1, 1); // month is 0-indexed
+    while (date.getMonth() === month - 1) {
+      if (isWeekday(date)) {
+        days.push(new Date(date));
+      }
+      date.setDate(date.getDate() + 1);
+    }
+    return days;
+  }
+
+  const febDays = getWorkingDays(2026, 2);  // February 2026
+  const marDays = getWorkingDays(2026, 3);  // March 2026
+  const aprDays = getWorkingDays(2026, 4);  // April 2026
+
+  console.log(`  Feb working days: ${febDays.length}, Mar: ${marDays.length}, Apr: ${aprDays.length}`);
 
   const bookings = [];
-  for (let i = 0; i < 250; i++) {
+  const slots = ["AM", "PM"];
+
+  // Helper to create a booking
+  async function createBooking(scheduledDate: Date, status: BookingStatus, isProvisional: boolean = false) {
     const { site, customer } = randomElement(allSites);
     const service = randomElement(services);
     const engineer = randomElement(engineers);
-    const status = randomElement(bookingStatuses);
-
-    // Date based on status
-    let scheduledDate: Date;
-    let isProvisional = false;
-
-    if (status === "COMPLETED") {
-      scheduledDate = subDays(today, randomInt(7, 90)); // Past 90 days
-    } else if (status === "IN_PROGRESS") {
-      scheduledDate = today;
-    } else if (status === "CANCELLED") {
-      scheduledDate = subDays(today, randomInt(1, 30));
-    } else {
-      scheduledDate = addDays(today, randomInt(1, 45)); // Future 45 days
-      // 5% of future bookings are provisional
-      if (Math.random() < 0.05) {
-        isProvisional = true;
-      }
-    }
 
     const qty = randomInt(10, 100);
     const basePrice = Math.max(service.basePrice * qty, service.minCharge);
@@ -646,14 +649,14 @@ async function main() {
         engineerId: status !== "PENDING" ? engineer.id : null,
         status,
         scheduledDate,
-        slot: randomElement(["09:00", "10:00", "11:00", "13:00", "14:00"]),
+        slot: randomElement(slots),
         estimatedQty: qty,
         quotedPrice,
         originalPrice: basePrice,
         discountPercent,
         estimatedDuration: Math.ceil(service.baseMinutes + service.minutesPerUnit * qty),
         isProvisional,
-        provisionalUntil: isProvisional ? addDays(today, 7) : null,
+        provisionalUntil: isProvisional ? addDays(scheduledDate, 7) : null,
         startedAt: status === "IN_PROGRESS" || status === "COMPLETED" ? scheduledDate : null,
         completedAt: status === "COMPLETED" ? scheduledDate : null,
       },
@@ -675,9 +678,87 @@ async function main() {
       }
       await prisma.asset.createMany({ data: assetData });
     }
+
+    return booking;
   }
 
-  console.log(`✅ Created ${bookings.length} bookings\n`);
+  // February 2026: 8-12 bookings per working day (all COMPLETED since it's past)
+  console.log("  Creating February bookings (high density)...");
+  for (const day of febDays) {
+    const bookingsPerDay = randomInt(8, 12);
+    for (let i = 0; i < bookingsPerDay; i++) {
+      await createBooking(day, "COMPLETED");
+    }
+  }
+  console.log(`  ✓ February: ${febDays.length * 10} avg bookings`);
+
+  // March 2026: 4-6 bookings per working day (mix of COMPLETED and future statuses)
+  console.log("  Creating March bookings (medium density)...");
+  for (const day of marDays) {
+    const bookingsPerDay = randomInt(4, 6);
+    const isPast = day < today;
+    for (let i = 0; i < bookingsPerDay; i++) {
+      if (isPast) {
+        // Past dates: mostly COMPLETED, some CANCELLED
+        const status = Math.random() < 0.9 ? "COMPLETED" : "CANCELLED";
+        await createBooking(day, status);
+      } else if (day.toDateString() === today.toDateString()) {
+        // Today: IN_PROGRESS or CONFIRMED
+        const status = Math.random() < 0.5 ? "IN_PROGRESS" : "CONFIRMED";
+        await createBooking(day, status);
+      } else {
+        // Future dates: CONFIRMED or PENDING, some provisional
+        const isProvisional = Math.random() < 0.15;
+        const status = Math.random() < 0.7 ? "CONFIRMED" : "PENDING";
+        await createBooking(day, status, isProvisional);
+      }
+    }
+  }
+  console.log(`  ✓ March: ${marDays.length * 5} avg bookings`);
+
+  // April 2026: 2-4 bookings per working day (mostly future)
+  console.log("  Creating April bookings (low density)...");
+  for (const day of aprDays) {
+    const bookingsPerDay = randomInt(2, 4);
+    const isPast = day < today;
+    for (let i = 0; i < bookingsPerDay; i++) {
+      if (isPast) {
+        const status = Math.random() < 0.85 ? "COMPLETED" : "CANCELLED";
+        await createBooking(day, status);
+      } else if (day.toDateString() === today.toDateString()) {
+        const status = Math.random() < 0.5 ? "IN_PROGRESS" : "CONFIRMED";
+        await createBooking(day, status);
+      } else {
+        // Future: more pending/provisional as we go further out
+        const isProvisional = Math.random() < 0.25;
+        const status = Math.random() < 0.5 ? "CONFIRMED" : "PENDING";
+        await createBooking(day, status, isProvisional);
+      }
+    }
+  }
+  console.log(`  ✓ April: ${aprDays.length * 3} avg bookings`);
+
+  // Also add some historical data from Jan 2026 and Dec 2025 for trends
+  console.log("  Creating historical bookings (Dec-Jan)...");
+  const janDays = getWorkingDays(2026, 1);
+  const decDays = getWorkingDays(2025, 12);
+
+  for (const day of janDays) {
+    const bookingsPerDay = randomInt(5, 8);
+    for (let i = 0; i < bookingsPerDay; i++) {
+      await createBooking(day, "COMPLETED");
+    }
+  }
+
+  for (const day of decDays) {
+    const bookingsPerDay = randomInt(3, 6);
+    for (let i = 0; i < bookingsPerDay; i++) {
+      await createBooking(day, "COMPLETED");
+    }
+  }
+  console.log(`  ✓ Jan: ${janDays.length * 6} avg, Dec: ${decDays.length * 4} avg bookings`);
+
+  console.log(`✅ Created ${bookings.length} total bookings\n`);
 
   // =====================
   // CREATE COMPLIANCE REMINDERS

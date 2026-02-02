@@ -36,14 +36,23 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// OPTIMIZED: Get discounts for a range of dates with a single batch query
+// Type for date pricing with discount info
+export type DatePricing = {
+  date: string;
+  discountPercent: number;
+  discountReason?: string;
+  originalPrice: number;
+  discountedPrice: number;
+};
+
+// OPTIMIZED: Get discounts and pricing for a range of dates with a single batch query
 export async function getDateRangeDiscounts(
   serviceId: string,
   siteId: string,
   startDate: Date,
   endDate: Date,
   estimatedQty: number
-): Promise<{ date: string; discountPercent: number; discountReason?: string }[]> {
+): Promise<DatePricing[]> {
   // Fetch service and site in parallel
   const [service, site] = await Promise.all([
     db.service.findUnique({ where: { id: serviceId } }),
@@ -51,6 +60,10 @@ export async function getDateRangeDiscounts(
   ]);
 
   if (!service || !site) return [];
+
+  // Calculate base price once (same for all dates)
+  const calculatedPrice = service.basePrice * estimatedQty;
+  const originalPrice = Math.max(calculatedPrice, service.minCharge);
 
   // Extend the date range by 1 day on each side for adjacent-day discount checks
   const queryStart = new Date(startDate);
@@ -81,7 +94,7 @@ export async function getDateRangeDiscounts(
   }
 
   const sitePostcodePrefix = extractPostcodePrefix(site.postcode);
-  const results: { date: string; discountPercent: number; discountReason?: string }[] = [];
+  const results: DatePricing[] = [];
 
   // Process each date in the range
   const currentDate = new Date(startDate);
@@ -95,10 +108,13 @@ export async function getDateRangeDiscounts(
 
     // Check for same location on same day (50% discount)
     if (sameDayBookings.some(b => b.siteId === site.id)) {
+      const discountedPrice = originalPrice * (1 - DISCOUNT_SAME_LOCATION / 100);
       results.push({
         date: dateKey,
         discountPercent: DISCOUNT_SAME_LOCATION,
         discountReason: "Same location discount - another service booked here today",
+        originalPrice,
+        discountedPrice,
       });
       currentDate.setDate(currentDate.getDate() + 1);
       continue;
@@ -106,10 +122,13 @@ export async function getDateRangeDiscounts(
 
     // Check for same postcode on same day (25% discount)
     if (sameDayBookings.some(b => extractPostcodePrefix(b.site.postcode) === sitePostcodePrefix)) {
+      const discountedPrice = originalPrice * (1 - DISCOUNT_SAME_POSTCODE / 100);
       results.push({
         date: dateKey,
         discountPercent: DISCOUNT_SAME_POSTCODE,
         discountReason: `Area discount - booking in ${sitePostcodePrefix} area today`,
+        originalPrice,
+        discountedPrice,
       });
       currentDate.setDate(currentDate.getDate() + 1);
       continue;
@@ -122,10 +141,13 @@ export async function getDateRangeDiscounts(
         calculateDistance(site.latitude!, site.longitude!, b.site.latitude, b.site.longitude) <= MAX_NEARBY_KM
       );
       if (nearbyOnSameDay) {
+        const discountedPrice = originalPrice * (1 - DISCOUNT_SAME_POSTCODE / 100);
         results.push({
           date: dateKey,
           discountPercent: DISCOUNT_SAME_POSTCODE,
           discountReason: "Proximity discount - nearby booking on same day",
+          originalPrice,
+          discountedPrice,
         });
         currentDate.setDate(currentDate.getDate() + 1);
         continue;
@@ -147,10 +169,13 @@ export async function getDateRangeDiscounts(
 
     // Check for same postcode on adjacent days
     if (adjacentBookings.some(b => extractPostcodePrefix(b.site.postcode) === sitePostcodePrefix)) {
+      const discountedPrice = originalPrice * (1 - DISCOUNT_ADJACENT_DAY / 100);
       results.push({
         date: dateKey,
         discountPercent: DISCOUNT_ADJACENT_DAY,
         discountReason: `Adjacent day discount - booking in ${sitePostcodePrefix} area nearby`,
+        originalPrice,
+        discountedPrice,
       });
       currentDate.setDate(currentDate.getDate() + 1);
       continue;
@@ -163,18 +188,26 @@ export async function getDateRangeDiscounts(
         calculateDistance(site.latitude!, site.longitude!, b.site.latitude, b.site.longitude) <= MAX_NEARBY_KM
       );
       if (nearbyOnAdjacent) {
+        const discountedPrice = originalPrice * (1 - DISCOUNT_ADJACENT_DAY / 100);
         results.push({
           date: dateKey,
           discountPercent: DISCOUNT_ADJACENT_DAY,
           discountReason: "Adjacent day discount - nearby booking the day before/after",
+          originalPrice,
+          discountedPrice,
         });
         currentDate.setDate(currentDate.getDate() + 1);
         continue;
       }
     }
 
-    // No discount
-    results.push({ date: dateKey, discountPercent: 0 });
+    // No discount - full price
+    results.push({
+      date: dateKey,
+      discountPercent: 0,
+      originalPrice,
+      discountedPrice: originalPrice,
+    });
     currentDate.setDate(currentDate.getDate() + 1);
   }
 

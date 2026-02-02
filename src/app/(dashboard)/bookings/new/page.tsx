@@ -10,11 +10,11 @@ export const metadata = {
 };
 
 interface NewBookingPageProps {
-  searchParams: Promise<{ siteId?: string; bookingType?: string }>;
+  searchParams: Promise<{ siteId?: string; serviceId?: string; bookingType?: string }>;
 }
 
 export default async function NewBookingPage({ searchParams }: NewBookingPageProps) {
-  const { siteId, bookingType } = await searchParams;
+  const { siteId, serviceId, bookingType } = await searchParams;
 
   // If no booking type selected, show the type selector
   if (!bookingType) {
@@ -36,5 +36,12 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
     getUserSites(),
   ]);
 
-  return <BookingWizard services={services} sites={sites} initialSiteId={siteId} />;
+  return (
+    <BookingWizard
+      services={services}
+      sites={sites}
+      initialSiteId={siteId}
+      initialServiceId={serviceId}
+    />
+  );
 }
