@@ -23,6 +23,11 @@ export const metadata: Metadata = {
     "electrical testing",
     "safety testing",
   ],
+  icons: {
+    icon: "/logo.svg",
+    shortcut: "/logo.svg",
+    apple: "/logo.svg",
+  },
 };
 
 export const viewport: Viewport = {
