@@ -4,12 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
+import Image from "next/image";
 import {
   LayoutDashboard,
   Calendar,
   Building2,
   Menu,
-  Shield,
   Users,
   Settings,
   ClipboardList,
@@ -109,9 +109,13 @@ export function DashboardLayout({
           <div className="flex flex-col flex-grow bg-white pt-5 pb-4 overflow-y-auto">
             {/* Logo */}
             <div className="flex items-center gap-2 px-6 mb-8">
-              <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
-                <Shield className="w-5 h-5 text-white" />
-              </div>
+              <Image
+                src="/logo.svg"
+                alt="OfficeTest On Demand"
+                width={32}
+                height={32}
+                className="w-8 h-8"
+              />
               <span className="font-semibold text-lg">OfficeTest On Demand</span>
             </div>
 
@@ -151,9 +155,13 @@ export function DashboardLayout({
       <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200">
         <div className="flex items-center justify-between h-16 px-4">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
-              <Shield className="w-5 h-5 text-white" />
-            </div>
+            <Image
+              src="/logo.svg"
+              alt="OfficeTest On Demand"
+              width={32}
+              height={32}
+              className="w-8 h-8"
+            />
             <span className="font-semibold">OfficeTest On Demand</span>
           </Link>
 

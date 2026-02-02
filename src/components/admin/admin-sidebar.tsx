@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { ChevronRight, Shield, Users, Calendar, Clock } from "lucide-react";
+import { ChevronRight, Users, Calendar, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { adminNavItems, type NavItem } from "./admin-nav-config";
 
@@ -54,9 +55,13 @@ export function AdminSidebar({ userName, collapsed = false }: AdminSidebarProps)
     <div className="flex flex-col h-full bg-white">
       {/* Logo */}
       <div className="flex items-center gap-2 px-6 py-5 border-b">
-        <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center flex-shrink-0">
-          <Shield className="w-5 h-5 text-white" />
-        </div>
+        <Image
+          src="/logo.svg"
+          alt="OfficeTest Admin"
+          width={32}
+          height={32}
+          className="w-8 h-8 flex-shrink-0"
+        />
         {!collapsed && (
           <span className="font-semibold text-lg">OfficeTest Admin</span>
         )}
