@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { UserButton } from "@clerk/nextjs";
+import { signOut } from "next-auth/react";
 import {
   LayoutDashboard,
   Calendar,
@@ -16,14 +16,22 @@ import {
   Package,
   CheckCircle2,
   LogOut,
+  User,
 } from "lucide-react";
-import { SignOutButton } from "@/components/auth/sign-out-button";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { AdminSidebar } from "@/components/admin/admin-sidebar";
 import { QuickActionsMenu } from "@/components/admin/quick-actions-menu";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { Role } from "@prisma/client";
 
 interface DashboardLayoutProps {
@@ -52,6 +60,28 @@ const legacyAdminNavItems = [
   { href: "/admin/services", label: "Services", icon: Settings },
 ];
 
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function UserAvatar({ name, size = "default" }: { name: string; size?: "default" | "small" }) {
+  const initials = getInitials(name);
+  const sizeClass = size === "small" ? "h-8 w-8 text-xs" : "h-10 w-10 text-sm";
+
+  return (
+    <Avatar className={sizeClass}>
+      <AvatarFallback className="bg-blue-100 text-blue-700 font-medium">
+        {initials}
+      </AvatarFallback>
+    </Avatar>
+  );
+}
+
 export function DashboardLayout({
   children,
   userRole,
@@ -59,6 +89,10 @@ export function DashboardLayout({
 }: DashboardLayoutProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const handleSignOut = () => {
+    signOut({ callbackUrl: "/login" });
+  };
 
   const getNavItems = () => {
     switch (userRole) {
@@ -130,7 +164,7 @@ export function DashboardLayout({
               <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
                 <Shield className="w-5 h-5 text-white" />
               </div>
-              <span className="font-semibold text-lg">OfficeTest On Demand</span>
+              <span className="font-semibold text-lg">Compliance Connect</span>
             </Link>
 
             {/* Navigation */}
@@ -143,14 +177,7 @@ export function DashboardLayout({
             {/* User section */}
             <div className="px-4 py-4 border-t border-gray-100">
               <div className="flex items-center gap-3 mb-3">
-                <UserButton
-                  afterSignOutUrl="/"
-                  appearance={{
-                    elements: {
-                      avatarBox: "h-10 w-10",
-                    },
-                  }}
-                />
+                <UserAvatar name={userName} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">
                     {userName}
@@ -160,11 +187,15 @@ export function DashboardLayout({
                   </p>
                 </div>
               </div>
-              <SignOutButton
+              <Button
                 variant="ghost"
                 size="sm"
+                onClick={handleSignOut}
                 className="w-full justify-start text-gray-500 hover:text-red-600 hover:bg-red-50"
-              />
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign out
+              </Button>
             </div>
           </div>
         )}
@@ -177,20 +208,32 @@ export function DashboardLayout({
             <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
               <Shield className="w-5 h-5 text-white" />
             </div>
-            <span className="font-semibold">OfficeTest On Demand</span>
+            <span className="font-semibold">Compliance Connect</span>
           </Link>
 
           <div className="flex items-center gap-2">
             {isAdmin && <QuickActionsMenu />}
             {userRole === "ENGINEER" && <NotificationBell />}
-            <UserButton
-              afterSignOutUrl="/"
-              appearance={{
-                elements: {
-                  avatarBox: "h-8 w-8",
-                },
-              }}
-            />
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  <UserAvatar name={userName} size="small" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <div className="px-2 py-1.5">
+                  <p className="text-sm font-medium">{userName}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{userRole.toLowerCase()}</p>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon">
@@ -213,10 +256,14 @@ export function DashboardLayout({
                     ))}
                   </nav>
                   <div className="border-t p-4">
-                    <SignOutButton
+                    <Button
                       variant="outline"
+                      onClick={handleSignOut}
                       className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-                    />
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Sign out
+                    </Button>
                   </div>
                 </div>
               </SheetContent>

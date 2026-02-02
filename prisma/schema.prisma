@@ -43,7 +43,8 @@ enum EngineerType {
 
 model User {
   id            String    @id @default(cuid())
-  clerkId       String    @unique
+  clerkId       String?   @unique  // Deprecated - kept for migration
+  password      String?   // Hashed password for email/password auth
   name          String
   email         String    @unique
   role          Role      @default(CUSTOMER)

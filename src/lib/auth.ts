@@ -1,29 +1,30 @@
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "./auth-config";
 import { db } from "./db";
 import type { User, Role } from "@prisma/client";
 
 export async function getCurrentUser(): Promise<User | null> {
-  const { userId } = await auth();
+  const session = await getServerSession(authOptions);
 
-  if (!userId) {
+  if (!session?.user?.id) {
     return null;
   }
 
   const user = await db.user.findUnique({
-    where: { clerkId: userId },
+    where: { id: session.user.id },
   });
 
   return user;
 }
 
 export async function requireUser(): Promise<User> {
-  // Use getOrCreateUser to ensure user exists
-  try {
-    const user = await getOrCreateUser();
-    return user;
-  } catch {
+  const user = await getCurrentUser();
+
+  if (!user) {
     throw new Error("Unauthorized");
   }
+
+  return user;
 }
 
 export async function requireRole(roles: Role[]): Promise<User> {
@@ -37,97 +38,19 @@ export async function requireRole(roles: Role[]): Promise<User> {
 }
 
 export async function getOrCreateUser(): Promise<User> {
-  const { userId } = await auth();
-  const clerkUser = await currentUser();
+  const session = await getServerSession(authOptions);
 
-  if (!userId || !clerkUser) {
+  if (!session?.user?.id) {
     throw new Error("Unauthorized");
   }
 
-  const email = clerkUser.emailAddresses[0]?.emailAddress || "";
-
-  try {
-    // First try to find by clerkId
-    let user = await db.user.findUnique({
-      where: { clerkId: userId },
-    });
-
-    if (user) {
-      return user;
-    }
-
-    // Check if a user with this email already exists (e.g., from seed data or previous Clerk account)
-    const existingUserByEmail = await db.user.findUnique({
-      where: { email },
-    });
-
-    if (existingUserByEmail) {
-      // If user exists with different clerkId, update it to use the new Clerk account
-      // This handles cases where Clerk was reset or user was migrated
-      user = await db.user.update({
-        where: { id: existingUserByEmail.id },
-        data: {
-          clerkId: userId,
-          name: `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || existingUserByEmail.name,
-          avatarUrl: clerkUser.imageUrl || existingUserByEmail.avatarUrl,
-        },
-      });
-      return user;
-    }
-
-    // Create a new user
-    user = await db.user.create({
-      data: {
-        clerkId: userId,
-        email,
-        name: `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || "User",
-        avatarUrl: clerkUser.imageUrl,
-      },
-    });
-
-    return user;
-  } catch (error) {
-    // Log the actual error for debugging
-    console.error("getOrCreateUser error:", {
-      clerkUserId: userId,
-      email,
-      error: error instanceof Error ? error.message : error,
-    });
-    throw new Error(`Failed to get or create user: ${error instanceof Error ? error.message : "Unknown error"}`);
-  }
-}
-
-export async function syncUserFromClerk(
-  clerkId: string,
-  data: {
-    email?: string;
-    firstName?: string;
-    lastName?: string;
-    imageUrl?: string;
-  }
-): Promise<User> {
-  const name = `${data.firstName || ""} ${data.lastName || ""}`.trim() || "User";
-
-  const user = await db.user.upsert({
-    where: { clerkId },
-    update: {
-      email: data.email,
-      name,
-      avatarUrl: data.imageUrl,
-    },
-    create: {
-      clerkId,
-      email: data.email || "",
-      name,
-      avatarUrl: data.imageUrl,
-    },
+  const user = await db.user.findUnique({
+    where: { id: session.user.id },
   });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
 
   return user;
-}
-
-export async function deleteUserByClerkId(clerkId: string): Promise<void> {
-  await db.user.delete({
-    where: { clerkId },
-  });
 }

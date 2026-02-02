@@ -3,6 +3,7 @@ import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, BuildingType, IndustryType, BookingStatus, EngineerType } from "@prisma/client";
 import { addDays, subDays, startOfDay } from "date-fns";
+import bcrypt from "bcryptjs";
 
 const pool = new Pool({
   connectionString: process.env.DIRECT_URL || process.env.DATABASE_URL,
@@ -107,7 +108,65 @@ async function main() {
     },
   });
 
+  // Delete demo users
+  await prisma.user.deleteMany({
+    where: {
+      email: { in: ["admin@demo.com", "customer@demo.com", "engineer@demo.com"] },
+    },
+  });
+
   console.log("✅ Cleanup complete!\n");
+
+  // =====================
+  // CREATE DEMO USERS
+  // =====================
+  console.log("👤 Creating demo users...");
+
+  const hashedPassword = await bcrypt.hash("demo123", 10);
+
+  const demoAdmin = await prisma.user.create({
+    data: {
+      email: "admin@demo.com",
+      password: hashedPassword,
+      name: "Demo Admin",
+      role: "ADMIN",
+      companyName: "Compliance Connect",
+    },
+  });
+
+  const demoCustomer = await prisma.user.create({
+    data: {
+      email: "customer@demo.com",
+      password: hashedPassword,
+      name: "Demo Customer",
+      role: "CUSTOMER",
+      companyName: "Acme Corporation",
+    },
+  });
+
+  const demoEngineer = await prisma.user.create({
+    data: {
+      email: "engineer@demo.com",
+      password: hashedPassword,
+      name: "Demo Engineer",
+      role: "ENGINEER",
+      engineerProfile: {
+        create: {
+          status: "APPROVED",
+          approvedAt: new Date(),
+          yearsExperience: 5,
+          engineerType: "PAT_TESTER",
+          dayRate: 280,
+          testRate: 0.45,
+        },
+      },
+    },
+  });
+
+  console.log("✅ Demo users created:");
+  console.log("   - admin@demo.com (password: demo123)");
+  console.log("   - customer@demo.com (password: demo123)");
+  console.log("   - engineer@demo.com (password: demo123)\n");
 
   // =====================
   // CREATE SERVICES
@@ -246,6 +305,64 @@ async function main() {
   ]);
 
   console.log(`✅ Created ${services.length} services\n`);
+
+  // =====================
+  // SETUP DEMO USERS (add competencies and sites)
+  // =====================
+  console.log("🔧 Setting up demo user data...");
+
+  // Add competencies to demo engineer
+  const demoEngineerProfile = await prisma.engineerProfile.findUnique({
+    where: { userId: demoEngineer.id },
+  });
+
+  if (demoEngineerProfile) {
+    await prisma.engineerCompetency.createMany({
+      data: services.map(s => ({
+        engineerProfileId: demoEngineerProfile.id,
+        serviceId: s.id,
+        experienceYears: 5,
+        certified: true,
+      })),
+    });
+
+    await prisma.engineerCoverageArea.createMany({
+      data: [
+        { engineerProfileId: demoEngineerProfile.id, postcodePrefix: "SW", radiusKm: 25 },
+        { engineerProfileId: demoEngineerProfile.id, postcodePrefix: "W", radiusKm: 25 },
+        { engineerProfileId: demoEngineerProfile.id, postcodePrefix: "EC", radiusKm: 25 },
+        { engineerProfileId: demoEngineerProfile.id, postcodePrefix: "WC", radiusKm: 25 },
+      ],
+    });
+  }
+
+  // Create a site for demo customer
+  const demoSite = await prisma.site.create({
+    data: {
+      userId: demoCustomer.id,
+      name: "Acme HQ",
+      address: "123 Business Street, London",
+      postcode: "SW1A 1AA",
+      profile: {
+        create: {
+          buildingType: "OFFICE",
+          industryType: "TECHNOLOGY",
+          floorArea: 500,
+          numberOfFloors: 2,
+          estimatedPATItems: 50,
+          estimatedFireZones: 4,
+          estimatedEmergencyLights: 20,
+          estimatedCircuits: 12,
+          estimatedExtinguishers: 5,
+          typicalOccupancy: 30,
+          questionnaireComplete: true,
+          completedAt: new Date(),
+        },
+      },
+    },
+  });
+
+  console.log("✅ Demo user setup complete\n");
 
   // =====================
   // CREATE PRICING RULES (Scheduling V2)

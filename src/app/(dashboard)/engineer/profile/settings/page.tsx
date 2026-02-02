@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useSession, signOut } from "next-auth/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -10,18 +10,22 @@ import { ChevronLeft, Bell, Moon, Globe, Shield, LogOut } from "lucide-react";
 import Link from "next/link";
 
 export default function EngineerSettingsPage() {
-  const { user, isLoaded } = useUser();
+  const { data: session, status } = useSession();
   const [notifications, setNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [locationSharing, setLocationSharing] = useState(true);
 
-  if (!isLoaded) {
+  if (status === "loading") {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
       </div>
     );
   }
+
+  const handleSignOut = () => {
+    signOut({ callbackUrl: "/login" });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -138,8 +142,8 @@ export default function EngineerSettingsPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button variant="outline" className="w-full justify-start" asChild>
-              <Link href="/sign-in">Change Password</Link>
+            <Button variant="outline" className="w-full justify-start">
+              Change Password
             </Button>
             <Button variant="outline" className="w-full justify-start">
               Download My Data
@@ -150,7 +154,7 @@ export default function EngineerSettingsPage() {
         {/* Sign Out */}
         <Card className="border-red-200">
           <CardContent className="pt-6">
-            <Button variant="destructive" className="w-full">
+            <Button variant="destructive" className="w-full" onClick={handleSignOut}>
               <LogOut className="h-4 w-4 mr-2" />
               Sign Out
             </Button>

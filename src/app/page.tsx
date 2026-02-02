@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
@@ -23,7 +24,6 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SignedIn, SignedOut, ClerkLoading, ClerkLoaded } from "@clerk/nextjs";
 
 const fadeIn = {
   initial: { opacity: 0, y: 20 },
@@ -40,7 +40,6 @@ const stagger = {
 };
 
 const services = [
-  // Testing Services
   {
     icon: Zap,
     name: "PAT Testing",
@@ -73,7 +72,6 @@ const services = [
     iconColor: "text-blue-500",
     bgColor: "bg-blue-500/10",
   },
-  // Fire Safety
   {
     icon: Flame,
     name: "Fire Extinguisher Servicing",
@@ -90,7 +88,6 @@ const services = [
     iconColor: "text-red-600",
     bgColor: "bg-red-600/10",
   },
-  // Health & Safety Assessments
   {
     icon: HeartPulse,
     name: "Health & Safety Assessment",
@@ -106,55 +103,6 @@ const services = [
     price: "From £180",
     iconColor: "text-cyan-500",
     bgColor: "bg-cyan-500/10",
-  },
-  {
-    icon: Monitor,
-    name: "DSE Assessment",
-    description: "Display Screen Equipment workstation assessment for office staff.",
-    price: "From £35/workstation",
-    iconColor: "text-slate-500",
-    bgColor: "bg-slate-500/10",
-  },
-  // Training Services
-  {
-    icon: GraduationCap,
-    name: "Fire Warden Training",
-    description: "Certified fire warden training course for designated staff.",
-    price: "From £75/person",
-    iconColor: "text-violet-500",
-    bgColor: "bg-violet-500/10",
-  },
-  {
-    icon: GraduationCap,
-    name: "First Aid Training",
-    description: "First aid at work training certification course.",
-    price: "From £95/person",
-    iconColor: "text-rose-500",
-    bgColor: "bg-rose-500/10",
-  },
-  {
-    icon: GraduationCap,
-    name: "Manual Handling Training",
-    description: "Safe manual handling techniques training course.",
-    price: "From £55/person",
-    iconColor: "text-indigo-500",
-    bgColor: "bg-indigo-500/10",
-  },
-  {
-    icon: GraduationCap,
-    name: "Fire Awareness Training",
-    description: "Essential fire safety awareness training for all staff members.",
-    price: "From £45/person",
-    iconColor: "text-orange-600",
-    bgColor: "bg-orange-600/10",
-  },
-  {
-    icon: GraduationCap,
-    name: "Working at Height Training",
-    description: "Safety training for employees working at height.",
-    price: "From £85/person",
-    iconColor: "text-sky-500",
-    bgColor: "bg-sky-500/10",
   },
 ];
 
@@ -190,7 +138,7 @@ const features = [
 
 const testimonials = [
   {
-    quote: "OfficeTest On Demand made our annual PAT testing a breeze. Booked online, engineer arrived on time, certificates delivered same day.",
+    quote: "Compliance Connect made our annual PAT testing a breeze. Booked online, engineer arrived on time, certificates delivered same day.",
     author: "Sarah Mitchell",
     role: "Office Manager, TechCorp Ltd",
     rating: 5,
@@ -204,6 +152,9 @@ const testimonials = [
 ];
 
 export default function HomePage() {
+  const { data: session, status } = useSession();
+  const isAuthenticated = status === "authenticated";
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
@@ -214,55 +165,30 @@ export default function HomePage() {
               <div className="w-9 h-9 gradient-primary rounded-xl flex items-center justify-center shadow-lg">
                 <Shield className="w-5 h-5 text-white" />
               </div>
-              <span className="font-bold text-lg">OfficeTest On Demand</span>
+              <span className="font-bold text-lg">Compliance Connect</span>
             </Link>
 
             <div className="flex items-center gap-3">
-              <ClerkLoading>
-                <Link href="/engineer/login">
-                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                    <Wrench className="w-4 h-4 mr-2" />
-                    Engineer Login
-                  </Button>
-                </Link>
-                <Link href="/sign-in">
-                  <Button variant="ghost" size="sm">
-                    Sign In
-                  </Button>
-                </Link>
-                <Link href="/sign-up">
+              {isAuthenticated ? (
+                <Link href="/dashboard">
                   <Button size="sm" className="gradient-primary text-white border-0 shadow-lg hover:opacity-90">
-                    Get Started
+                    Dashboard
                   </Button>
                 </Link>
-              </ClerkLoading>
-              <ClerkLoaded>
-                <SignedOut>
-                  <Link href="/engineer/login">
-                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                      <Wrench className="w-4 h-4 mr-2" />
-                      Engineer Login
-                    </Button>
-                  </Link>
-                  <Link href="/sign-in">
+              ) : (
+                <>
+                  <Link href="/login">
                     <Button variant="ghost" size="sm">
                       Sign In
                     </Button>
                   </Link>
-                  <Link href="/sign-up">
+                  <Link href="/signup">
                     <Button size="sm" className="gradient-primary text-white border-0 shadow-lg hover:opacity-90">
                       Get Started
                     </Button>
                   </Link>
-                </SignedOut>
-                <SignedIn>
-                  <Link href="/dashboard">
-                    <Button size="sm" className="gradient-primary text-white border-0 shadow-lg hover:opacity-90">
-                      Dashboard
-                    </Button>
-                  </Link>
-                </SignedIn>
-              </ClerkLoaded>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -270,11 +196,9 @@ export default function HomePage() {
 
       {/* Hero Section */}
       <section className="relative pt-32 pb-24 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        {/* Background Elements */}
         <div className="absolute inset-0 gradient-hero" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-transparent to-transparent" />
 
-        {/* Animated Orbs */}
         <div className="absolute top-20 left-10 w-72 h-72 bg-primary/30 rounded-full blur-[100px] animate-pulse" />
         <div className="absolute bottom-20 right-10 w-96 h-96 bg-accent/20 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: "1s" }} />
 
@@ -311,34 +235,8 @@ export default function HomePage() {
             className="flex flex-col sm:flex-row items-center justify-center gap-4"
             variants={fadeIn}
           >
-            <ClerkLoading>
-              <Link href="/sign-up">
-                <Button size="lg" className="gradient-accent text-white border-0 shadow-xl hover:opacity-90 text-base px-8 h-14 rounded-xl">
-                  Book Your First Test
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
-              <Link href="#services">
-                <Button variant="outline" size="lg" className="bg-white/10 border-white/20 text-white hover:bg-white/20 text-base px-8 h-14 rounded-xl">
-                  View Services
-                </Button>
-              </Link>
-            </ClerkLoading>
-            <ClerkLoaded>
-              <SignedOut>
-                <Link href="/sign-up">
-                  <Button size="lg" className="gradient-accent text-white border-0 shadow-xl hover:opacity-90 text-base px-8 h-14 rounded-xl">
-                    Book Your First Test
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
-                </Link>
-                <Link href="#services">
-                  <Button variant="outline" size="lg" className="bg-white/10 border-white/20 text-white hover:bg-white/20 text-base px-8 h-14 rounded-xl">
-                    View Services
-                  </Button>
-                </Link>
-              </SignedOut>
-              <SignedIn>
+            {isAuthenticated ? (
+              <>
                 <Link href="/bookings/new">
                   <Button size="lg" className="gradient-accent text-white border-0 shadow-xl hover:opacity-90 text-base px-8 h-14 rounded-xl">
                     Book a Service
@@ -350,8 +248,22 @@ export default function HomePage() {
                     View Dashboard
                   </Button>
                 </Link>
-              </SignedIn>
-            </ClerkLoaded>
+              </>
+            ) : (
+              <>
+                <Link href="/signup">
+                  <Button size="lg" className="gradient-accent text-white border-0 shadow-xl hover:opacity-90 text-base px-8 h-14 rounded-xl">
+                    Book Your First Test
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+                <Link href="#services">
+                  <Button variant="outline" size="lg" className="bg-white/10 border-white/20 text-white hover:bg-white/20 text-base px-8 h-14 rounded-xl">
+                    View Services
+                  </Button>
+                </Link>
+              </>
+            )}
           </motion.div>
 
           {/* Stats Bar */}
@@ -395,7 +307,7 @@ export default function HomePage() {
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {services.map((service, index) => (
-              <Link key={service.name} href="/bookings/new">
+              <Link key={service.name} href={isAuthenticated ? "/bookings/new" : "/signup"}>
                 <motion.div
                   className="group relative bg-card rounded-2xl p-6 border border-border hover:border-primary/50 hover:shadow-xl transition-all duration-300 cursor-pointer h-full"
                   initial={{ opacity: 0, y: 20 }}
@@ -429,32 +341,12 @@ export default function HomePage() {
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
           >
-            <ClerkLoading>
-              <Link href="/sign-up">
-                <Button size="lg" className="gradient-primary text-white border-0 shadow-lg hover:opacity-90">
-                  Get Started
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-            </ClerkLoading>
-            <ClerkLoaded>
-              <SignedOut>
-                <Link href="/sign-up">
-                  <Button size="lg" className="gradient-primary text-white border-0 shadow-lg hover:opacity-90">
-                    Get Started
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-              </SignedOut>
-              <SignedIn>
-                <Link href="/bookings/new">
-                  <Button size="lg" className="gradient-primary text-white border-0 shadow-lg hover:opacity-90">
-                    Book Now
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-              </SignedIn>
-            </ClerkLoaded>
+            <Link href={isAuthenticated ? "/bookings/new" : "/signup"}>
+              <Button size="lg" className="gradient-primary text-white border-0 shadow-lg hover:opacity-90">
+                {isAuthenticated ? "Book Now" : "Get Started"}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
           </motion.div>
         </div>
       </section>
@@ -522,40 +414,6 @@ export default function HomePage() {
                   </div>
                 </div>
               </div>
-
-              {/* Floating Cards */}
-              <motion.div
-                className="absolute -bottom-6 -left-6 bg-card rounded-2xl p-5 shadow-2xl border border-border"
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-emerald-500/10 rounded-full flex items-center justify-center">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-sm">Certificate Sent</div>
-                    <div className="text-xs text-muted-foreground">Just now</div>
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.div
-                className="absolute -top-6 -right-6 bg-card rounded-2xl p-5 shadow-2xl border border-border"
-                animate={{ y: [0, 10, 0] }}
-                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex -space-x-2">
-                    <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">JW</div>
-                    <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-xs font-bold text-accent-foreground">SM</div>
-                  </div>
-                  <div>
-                    <div className="font-semibold text-sm">50+ engineers</div>
-                    <div className="text-xs text-muted-foreground">Ready to help</div>
-                  </div>
-                </div>
-              </motion.div>
             </motion.div>
           </div>
         </div>
@@ -628,37 +486,26 @@ export default function HomePage() {
             <span className="text-gradient-accent">compliance?</span>
           </h2>
           <p className="text-xl text-white/70 mb-10 max-w-2xl mx-auto">
-            Join thousands of businesses who trust OfficeTest On Demand.
+            Join thousands of businesses who trust Compliance Connect.
             Book your first test today — it takes less than a minute.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <ClerkLoading>
-              <Link href="/sign-up">
+            {isAuthenticated ? (
+              <Link href="/bookings/new">
+                <Button size="lg" className="gradient-accent text-white border-0 shadow-xl hover:opacity-90 text-base px-8 h-14 rounded-xl">
+                  Book a Service
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/signup">
                 <Button size="lg" className="gradient-accent text-white border-0 shadow-xl hover:opacity-90 text-base px-8 h-14 rounded-xl">
                   Get Started Free
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
-            </ClerkLoading>
-            <ClerkLoaded>
-              <SignedOut>
-                <Link href="/sign-up">
-                  <Button size="lg" className="gradient-accent text-white border-0 shadow-xl hover:opacity-90 text-base px-8 h-14 rounded-xl">
-                    Get Started Free
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
-                </Link>
-              </SignedOut>
-              <SignedIn>
-                <Link href="/bookings/new">
-                  <Button size="lg" className="gradient-accent text-white border-0 shadow-xl hover:opacity-90 text-base px-8 h-14 rounded-xl">
-                    Book a Service
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
-                </Link>
-              </SignedIn>
-            </ClerkLoaded>
-            <Link href="/engineer/login">
+            )}
+            <Link href="/signup?type=engineer">
               <Button variant="outline" size="lg" className="bg-white/10 border-white/20 text-white hover:bg-white/20 text-base px-8 h-14 rounded-xl">
                 <Wrench className="mr-2 h-5 w-5" />
                 Join as Engineer
@@ -677,22 +524,22 @@ export default function HomePage() {
                 <Shield className="w-5 h-5 text-white" />
               </div>
               <div>
-                <span className="font-bold text-lg">OfficeTest On Demand</span>
+                <span className="font-bold text-lg">Compliance Connect</span>
                 <p className="text-sm text-muted-foreground">Smart compliance testing</p>
               </div>
             </div>
 
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
-              <Link href="/engineer/login" className="hover:text-foreground transition-colors">
-                Engineer Portal
+              <Link href="/login" className="hover:text-foreground transition-colors">
+                Login
               </Link>
-              <Link href="/sign-in" className="hover:text-foreground transition-colors">
-                Customer Login
+              <Link href="/signup" className="hover:text-foreground transition-colors">
+                Sign Up
               </Link>
             </div>
 
             <div className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} OfficeTest On Demand. All rights reserved.
+              © {new Date().getFullYear()} Compliance Connect. All rights reserved.
             </div>
           </div>
         </div>

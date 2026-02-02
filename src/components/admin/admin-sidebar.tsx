@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { ChevronRight, Shield, Users, Calendar, Clock, LogOut } from "lucide-react";
-import { SignOutButton } from "@/components/auth/sign-out-button";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { adminNavItems, type NavItem } from "./admin-nav-config";
 
 interface AdminSidebarProps {
@@ -99,11 +100,15 @@ export function AdminSidebar({ userName, collapsed = false }: AdminSidebarProps)
               highlight
             />
             <div className="pt-2 mt-2 border-t">
-              <SignOutButton
+              <Button
                 variant="ghost"
                 size="sm"
+                onClick={() => signOut({ callbackUrl: "/login" })}
                 className="w-full justify-start text-gray-500 hover:text-red-600 hover:bg-red-50"
-              />
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign out
+              </Button>
             </div>
           </div>
         )}

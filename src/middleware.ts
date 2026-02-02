@@ -1,44 +1,84 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
+import type { NextRequest } from "next/server";
 
-const isPublicRoute = createRouteMatcher([
+// Public routes that don't require authentication
+const publicRoutes = [
   "/",
-  "/sign-in(.*)",
-  "/sign-up(.*)",
-  "/engineer/login(.*)",
-  "/engineer/signup(.*)",
-  "/api/webhooks(.*)",
-  "/api/auth(.*)",
-  "/api/engineer/calendar/ical(.*)", // iCal feed is public (uses userId in URL)
-  // Clerk internal routes
-  "/.well-known(.*)",
-  "/sso-callback(.*)",
-]);
+  "/login",
+  "/signup",
+  "/api/auth",
+  "/api/webhooks",
+];
 
-export default clerkMiddleware(async (auth, req) => {
-  // Skip protection for public routes
-  if (isPublicRoute(req)) {
-    return;
+// Routes that start with these prefixes are public
+const publicPrefixes = [
+  "/api/auth/",
+  "/_next/",
+  "/favicon",
+];
+
+function isPublicRoute(pathname: string): boolean {
+  // Check exact matches
+  if (publicRoutes.includes(pathname)) {
+    return true;
   }
 
-  // Protect all other routes
-  try {
-    await auth.protect({
-      unauthenticatedUrl: new URL("/sign-in", req.url).toString(),
-    });
-  } catch (error) {
-    // If auth.protect throws (which it shouldn't normally),
-    // redirect to sign-in instead of showing an error
-    console.error("Auth protection error:", error);
-    const signInUrl = new URL("/sign-in", req.url);
-    signInUrl.searchParams.set("redirect_url", req.url);
-    return Response.redirect(signInUrl.toString());
+  // Check prefixes
+  for (const prefix of publicPrefixes) {
+    if (pathname.startsWith(prefix)) {
+      return true;
+    }
   }
-});
+
+  // Static files
+  if (pathname.match(/\.(ico|png|jpg|jpeg|svg|gif|webp|css|js|woff|woff2|ttf)$/)) {
+    return true;
+  }
+
+  return false;
+}
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Allow public routes
+  if (isPublicRoute(pathname)) {
+    return NextResponse.next();
+  }
+
+  // Check for session token
+  const token = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET || "compliance-connect-secret-key-change-in-production",
+  });
+
+  // Redirect to login if not authenticated
+  if (!token) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // Role-based access control
+  const role = token.role as string;
+
+  // Admin routes
+  if (pathname.startsWith("/admin") && role !== "ADMIN") {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // Engineer routes
+  if (pathname.startsWith("/engineer") && role !== "ENGINEER" && role !== "ADMIN") {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  return NextResponse.next();
+}
 
 export const config = {
   matcher: [
-    // Exclude static files and PWA assets from middleware
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest|json)).*)",
-    "/(api|trpc)(.*)",
+    // Match all paths except static files
+    "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };
