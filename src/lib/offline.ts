@@ -83,9 +83,12 @@ export async function queueOfflineRequest(
   });
 
   // Register for background sync if available
-  if ("serviceWorker" in navigator && "sync" in (navigator.serviceWorker as any)) {
+  if ("serviceWorker" in navigator) {
     const registration = await navigator.serviceWorker.ready;
-    await (registration as any).sync.register("sync-offline-requests");
+    // Background Sync API - not available in all browsers
+    if ("sync" in registration) {
+      await (registration.sync as { register: (tag: string) => Promise<void> }).register("sync-offline-requests");
+    }
   }
 }
 

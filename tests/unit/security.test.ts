@@ -49,8 +49,8 @@ describe("Security Tests", () => {
     });
 
     it("should not allow engineers to access other engineers jobs", () => {
-      const currentEngineerId = "eng-123";
-      const jobEngineerId = "eng-456";
+      const currentEngineerId: string = "eng-123";
+      const jobEngineerId: string = "eng-456";
       const hasAccess = currentEngineerId === jobEngineerId;
       expect(hasAccess).toBe(false);
     });
@@ -62,8 +62,8 @@ describe("Security Tests", () => {
     });
 
     it("should not allow customers to modify other customers bookings", () => {
-      const currentCustomerId = "cust-123";
-      const bookingCustomerId = "cust-456";
+      const currentCustomerId: string = "cust-123";
+      const bookingCustomerId: string = "cust-456";
       const hasAccess = currentCustomerId === bookingCustomerId;
       expect(hasAccess).toBe(false);
     });

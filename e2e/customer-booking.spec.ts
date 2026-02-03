@@ -1,4 +1,4 @@
-import { test, expect, testData, pages, waitForPageLoad } from "./fixtures";
+import { test, expect, pages, waitForPageLoad } from "./fixtures";
 
 test.describe("Customer Booking Flow", () => {
   test.use({
@@ -114,12 +114,11 @@ test.describe("Customer Booking Flow", () => {
     await page.getByRole("button", { name: /confirm|book|submit/i }).click();
 
     // Should redirect to booking confirmation or bookings list
-    await expect(
-      page
-        .locator("text=Booking Confirmed")
-        .or(page.locator("text=successfully"))
-        .or(page)
-    ).toHaveURL(/\/bookings/, { timeout: 10000 });
+    await Promise.race([
+      expect(page.locator("text=Booking Confirmed")).toBeVisible({ timeout: 10000 }),
+      expect(page.locator("text=successfully")).toBeVisible({ timeout: 10000 }),
+      expect(page).toHaveURL(/\/bookings/, { timeout: 10000 }),
+    ]);
   });
 
   test("should view booking list", async ({ page }) => {

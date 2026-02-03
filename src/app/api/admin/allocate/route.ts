@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getOrCreateUser } from "@/lib/auth";
-import { autoAllocateBooking } from "@/lib/actions/allocation";
+import { autoAllocateBookingV2 } from "@/lib/scheduling/v2";
 
 export async function POST(request: Request) {
   try {
@@ -19,9 +19,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await autoAllocateBooking(bookingId);
+    const result = await autoAllocateBookingV2(bookingId);
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      success: result.success,
+      engineerId: result.selected?.engineer.user.id,
+      engineerName: result.selected?.engineer.user.name,
+      score: result.selected?.score.compositeScore,
+      error: result.error,
+    });
   } catch (error) {
     console.error("Error allocating booking:", error);
     return NextResponse.json(

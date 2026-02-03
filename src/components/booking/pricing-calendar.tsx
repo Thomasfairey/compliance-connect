@@ -120,16 +120,16 @@ export function PricingCalendar({
   }
 
   const getDiscountColor = (discountPercent: number) => {
-    if (discountPercent >= 50) return "bg-green-500";
-    if (discountPercent >= 25) return "bg-green-400";
-    if (discountPercent >= 10) return "bg-amber-400";
+    if (discountPercent >= 15) return "bg-green-500";
+    if (discountPercent >= 10) return "bg-green-400";
+    if (discountPercent >= 5) return "bg-amber-400";
     return "";
   };
 
   const getDiscountBgColor = (discountPercent: number) => {
-    if (discountPercent >= 50) return "bg-green-50 hover:bg-green-100 border-green-200";
-    if (discountPercent >= 25) return "bg-green-50/50 hover:bg-green-100/50 border-green-100";
-    if (discountPercent >= 10) return "bg-amber-50 hover:bg-amber-100 border-amber-200";
+    if (discountPercent >= 15) return "bg-green-100 hover:bg-green-200 border-green-300";
+    if (discountPercent >= 10) return "bg-green-50 hover:bg-green-100 border-green-200";
+    if (discountPercent >= 5) return "bg-amber-50 hover:bg-amber-100 border-amber-200";
     return "hover:bg-muted/50";
   };
 
@@ -165,18 +165,19 @@ export function PricingCalendar({
 
       {/* Legend */}
       {serviceId && siteId && estimatedQty && (
-        <div className="flex flex-wrap gap-4 text-sm">
+        <div className="flex flex-wrap gap-4 text-sm p-3 bg-gray-50 rounded-lg border">
+          <span className="font-medium text-gray-700">Discounts:</span>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-green-500" />
-            <span>Best price (50% off)</span>
+            <span>15%+ off</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-green-400" />
-            <span>Great price (25% off)</span>
+            <span>10%+ off</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-amber-400" />
-            <span>Good price (10% off)</span>
+            <span>5%+ off</span>
           </div>
         </div>
       )}
@@ -235,15 +236,27 @@ export function PricingCalendar({
                       {format(dayDate, "d")}
                     </span>
 
+                    {/* Discount badge */}
+                    {dayPricing && dayPricing.discountPercent > 0 && isCurrentMonth && !isDisabled && (
+                      <div className={cn(
+                        "absolute top-1 right-1 text-[9px] font-bold px-1 py-0.5 rounded",
+                        dayPricing.discountPercent >= 15 && "bg-green-500 text-white",
+                        dayPricing.discountPercent >= 10 && dayPricing.discountPercent < 15 && "bg-green-400 text-white",
+                        dayPricing.discountPercent >= 5 && dayPricing.discountPercent < 10 && "bg-amber-400 text-white"
+                      )}>
+                        -{dayPricing.discountPercent}%
+                      </div>
+                    )}
+
                     {/* Price display */}
                     {dayPricing && isCurrentMonth && !isDisabled && (
                       <div className="mt-auto">
                         <div
                           className={cn(
                             "text-xs font-semibold",
-                            dayPricing.discountPercent >= 50 && "text-green-700",
-                            dayPricing.discountPercent >= 25 && dayPricing.discountPercent < 50 && "text-green-600",
-                            dayPricing.discountPercent >= 10 && dayPricing.discountPercent < 25 && "text-amber-600",
+                            dayPricing.discountPercent >= 15 && "text-green-700",
+                            dayPricing.discountPercent >= 10 && dayPricing.discountPercent < 15 && "text-green-600",
+                            dayPricing.discountPercent >= 5 && dayPricing.discountPercent < 10 && "text-amber-600",
                             dayPricing.discountPercent === 0 && "text-gray-600"
                           )}
                         >

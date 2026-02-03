@@ -146,12 +146,11 @@ test.describe("Bundle Booking Flow", () => {
       await confirmBtn.click();
 
       // Should show success or redirect
-      await expect(
-        page
-          .locator("text=successfully")
-          .or(page.locator("text=Booking Confirmed"))
-          .or(page)
-      ).toHaveURL(/\/bookings/, { timeout: 10000 });
+      await Promise.race([
+        expect(page.locator("text=successfully")).toBeVisible({ timeout: 10000 }),
+        expect(page.locator("text=Booking Confirmed")).toBeVisible({ timeout: 10000 }),
+        expect(page).toHaveURL(/\/bookings/, { timeout: 10000 }),
+      ]);
     }
   });
 

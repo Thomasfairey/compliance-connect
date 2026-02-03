@@ -109,7 +109,7 @@ export default async function CalendarSyncPage({
         {/* Info Banner */}
         <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
           <p className="text-sm text-blue-800">
-            Sync your jobs with your personal calendar so your family knows when you'll be home.
+            Sync your jobs with your personal calendar so your family knows when you&apos;ll be home.
           </p>
         </div>
 

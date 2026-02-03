@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   LogOut,
   User,
+  Plus,
 } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { NotificationBell } from "@/components/notifications/notification-bell";
@@ -42,6 +43,7 @@ interface DashboardLayoutProps {
 
 const customerNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/bookings/new", label: "Book a Test", icon: Plus },
   { href: "/bookings", label: "Bookings", icon: Calendar },
   { href: "/bookings/bundles", label: "Bundles", icon: Package },
   { href: "/compliance", label: "Compliance", icon: CheckCircle2 },
@@ -50,7 +52,7 @@ const customerNavItems = [
 
 const engineerNavItems = [
   { href: "/engineer", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/engineer/jobs", label: "My Jobs", icon: ClipboardList },
+  { href: "/engineer/calendar", label: "Calendar", icon: Calendar },
 ];
 
 const legacyAdminNavItems = [
@@ -155,7 +157,7 @@ export function DashboardLayout({
       <aside className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col border-r border-gray-200">
         {isAdmin ? (
           // Enhanced admin sidebar with expandable navigation
-          <AdminSidebar userName={userName} />
+          <AdminSidebar />
         ) : (
           // Standard sidebar for customers/engineers
           <div className="flex flex-col flex-grow bg-white pt-5 pb-4 overflow-y-auto">
@@ -171,6 +173,14 @@ export function DashboardLayout({
                 <NavLink key={item.href} item={item} />
               ))}
             </nav>
+
+            {/* Notifications */}
+            {(userRole === "ENGINEER" || userRole === "CUSTOMER") && (
+              <div className="px-4 py-2 border-t border-gray-100 flex items-center gap-2">
+                <NotificationBell />
+                <span className="text-sm text-gray-500">Notifications</span>
+              </div>
+            )}
 
             {/* User section */}
             <div className="px-4 py-4 border-t border-gray-100">
@@ -209,7 +219,7 @@ export function DashboardLayout({
 
           <div className="flex items-center gap-2">
             {isAdmin && <QuickActionsMenu />}
-            {userRole === "ENGINEER" && <NotificationBell />}
+            {(userRole === "ENGINEER" || userRole === "CUSTOMER") && <NotificationBell />}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

@@ -17,6 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { createOrUpdateSiteProfile } from "@/lib/actions/site-profile";
 import { Building2, Loader2 } from "lucide-react";
+import type { BuildingType, IndustryType } from "@prisma/client";
 
 const buildingTypes = [
   { value: "OFFICE", label: "Office" },
@@ -126,8 +127,8 @@ export function SiteQuestionnaire({
     try {
       const result = await createOrUpdateSiteProfile({
         siteId,
-        buildingType: buildingType as any,
-        industryType: industryType as any,
+        buildingType: buildingType as BuildingType,
+        industryType: industryType as IndustryType,
         floorArea: floorArea ? parseInt(floorArea) : undefined,
         numberOfFloors: numberOfFloors ? parseInt(numberOfFloors) : undefined,
         numberOfRooms: numberOfRooms ? parseInt(numberOfRooms) : undefined,
@@ -157,7 +158,7 @@ export function SiteQuestionnaire({
       } else {
         toast.error(result.error || "Failed to save profile");
       }
-    } catch (error) {
+    } catch {
       toast.error("An error occurred");
     } finally {
       setIsSubmitting(false);

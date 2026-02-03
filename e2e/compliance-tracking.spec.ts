@@ -118,9 +118,6 @@ test.describe("Compliance Tracking", () => {
       .first();
 
     if (await autoRebookBtn.isVisible()) {
-      // Get initial state
-      const initialText = await autoRebookBtn.textContent();
-
       // Click to toggle
       await autoRebookBtn.click();
 

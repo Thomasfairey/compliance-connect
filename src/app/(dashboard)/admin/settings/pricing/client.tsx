@@ -28,6 +28,14 @@ import { Save, Plus, Edit2, PoundSterling, Percent, Zap } from "lucide-react";
 import { toast } from "sonner";
 import type { Service, PricingRule } from "@prisma/client";
 
+interface PricingRuleConfig {
+  cluster?: { discountPercent?: number };
+  urgency?: { premiumPercent?: number };
+  offpeak?: { discountPercent?: number };
+  flex?: { discountPercent?: number };
+  loyalty?: { discountPercent?: number };
+}
+
 interface PricingSettingsClientProps {
   services: Service[];
   pricingRules: PricingRule[];
@@ -322,7 +330,7 @@ function getDefaultDescription(type: string): string {
 }
 
 function getRuleAmount(rule: PricingRule): string {
-  const config = rule.config as any;
+  const config = rule.config as PricingRuleConfig;
   if (config?.cluster?.discountPercent) return `${config.cluster.discountPercent}% off`;
   if (config?.urgency?.premiumPercent) return `+${config.urgency.premiumPercent}%`;
   if (config?.offpeak?.discountPercent) return `${config.offpeak.discountPercent}% off`;

@@ -11,28 +11,47 @@ import { Logo } from "@/components/ui/logo";
 import { adminNavItems, type NavItem } from "./admin-nav-config";
 
 interface AdminSidebarProps {
-  userName: string;
   collapsed?: boolean;
 }
 
-export function AdminSidebar({ userName, collapsed = false }: AdminSidebarProps) {
+export function AdminSidebar({ collapsed = false }: AdminSidebarProps) {
   const pathname = usePathname();
-  const [expandedItems, setExpandedItems] = useState<string[]>([]);
-
-  // Auto-expand the active section on mount
-  useEffect(() => {
+  const [expandedItems, setExpandedItems] = useState<string[]>(() => {
+    // Initialize with active sections expanded
+    const active: string[] = [];
     for (const item of adminNavItems) {
       if (item.children) {
         const isChildActive = item.children.some(
           (child) =>
             pathname === child.href || pathname.startsWith(child.href + "/")
         );
-        if (isChildActive && !expandedItems.includes(item.id)) {
-          setExpandedItems((prev) => [...prev, item.id]);
+        if (isChildActive) {
+          active.push(item.id);
         }
       }
     }
-  }, [pathname]);
+    return active;
+  });
+
+  // Update expanded items when pathname changes
+  useEffect(() => {
+    const newExpanded = new Set(expandedItems);
+    for (const item of adminNavItems) {
+      if (item.children) {
+        const isChildActive = item.children.some(
+          (child) =>
+            pathname === child.href || pathname.startsWith(child.href + "/")
+        );
+        if (isChildActive) {
+          newExpanded.add(item.id);
+        }
+      }
+    }
+    if (newExpanded.size !== expandedItems.length) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setExpandedItems(Array.from(newExpanded));
+    }
+  }, [pathname, expandedItems.length]);
 
   const toggleExpand = (itemId: string) => {
     setExpandedItems((prev) =>

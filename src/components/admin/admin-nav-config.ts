@@ -51,28 +51,17 @@ export const adminNavItems: NavItem[] = [
     description: "Overview & alerts",
   },
   {
-    id: "scheduling",
-    label: "Scheduling",
-    icon: Calendar,
-    href: "/admin/scheduling",
-    description: "Control allocation & routing",
-    children: [
-      { id: "scheduling-control", label: "Control Panel", href: "/admin/scheduling/control" },
-      { id: "scheduling-calendar", label: "Master Calendar", href: "/admin/scheduling/calendar" },
-      { id: "scheduling-optimization", label: "Optimization", href: "/admin/scheduling/optimization" },
-    ],
-  },
-  {
     id: "bookings",
     label: "Bookings",
-    icon: ClipboardList,
-    href: "/admin/bookings",
-    description: "Manage all bookings",
+    icon: Calendar,
+    href: "/admin/scheduling/calendar",
+    description: "Calendar, bookings & scheduling",
     children: [
+      { id: "bookings-calendar", label: "Calendar", href: "/admin/scheduling/calendar" },
       { id: "bookings-all", label: "All Bookings", href: "/admin/bookings" },
       { id: "bookings-new", label: "Create Booking", href: "/admin/bookings/new" },
-      { id: "bookings-pending", label: "Pending Allocation", href: "/admin/bookings/pending" },
       { id: "bookings-issues", label: "Issues & Escalations", href: "/admin/bookings/issues" },
+      { id: "bookings-health", label: "System Health", href: "/admin/scheduling/optimization" },
     ],
   },
   {

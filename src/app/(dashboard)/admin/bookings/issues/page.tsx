@@ -14,15 +14,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatDistanceToNow, format, isPast } from "date-fns";
+import { format } from "date-fns";
 import {
   AlertTriangle,
   Clock,
   XCircle,
   CalendarX,
-  ExternalLink,
-  MessageSquare,
 } from "lucide-react";
+import type { Booking, Service, Site, User } from "@prisma/client";
+
+type IssueBooking = Booking & {
+  service: Service;
+  site: Site;
+  customer: User;
+  engineer?: User | null;
+};
 
 export const dynamic = "force-dynamic";
 
@@ -231,7 +237,7 @@ function IssueSection({
   description: string;
   icon: typeof AlertTriangle;
   iconColor: string;
-  bookings: any[];
+  bookings: IssueBooking[];
   showEngineer?: boolean;
   actionLabel?: string;
 }) {

@@ -333,9 +333,6 @@ test.describe("Bundle Discounts", () => {
       const qtyInput = page.locator('input[type="number"]').first();
       await expect(qtyInput).toBeVisible({ timeout: 5000 });
 
-      // Get initial total
-      const initialTotal = await page.locator("text=Total").textContent();
-
       // Change quantity
       await qtyInput.fill("200");
 

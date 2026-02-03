@@ -326,8 +326,13 @@ describe("Edge Cases - Engineer Allocation", () => {
     });
 
     it("should handle no expiry date (never expires)", () => {
-      const expiryDate = null;
-      const isValid = expiryDate === null || expiryDate > new Date();
+      // Test that null expiry date means never expires (always valid)
+      function checkValidity(date: Date | null): boolean {
+        if (date === null) return true;
+        return date > new Date();
+      }
+
+      const isValid = checkValidity(null);
       expect(isValid).toBe(true);
     });
 

@@ -76,7 +76,7 @@ export default async function EngineerJobDetailPage({
       <PageHeader
         title={booking.service.name}
         description={`${booking.site.name} • ${formatDate(booking.scheduledDate)}`}
-        backHref="/engineer/jobs"
+        backHref="/engineer/calendar"
       />
 
       {/* Status & Quick Actions */}
@@ -184,6 +184,8 @@ export default async function EngineerJobDetailPage({
                   bookingId={booking.id}
                   status={booking.status}
                   hasSignature={!!booking.customerSignatureUrl}
+                  siteLatitude={booking.site.latitude}
+                  siteLongitude={booking.site.longitude}
                 />
               </CardContent>
             </Card>

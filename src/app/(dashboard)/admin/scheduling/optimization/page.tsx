@@ -6,26 +6,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { format, addDays, startOfDay, endOfDay } from "date-fns";
 import { buildOptimizedRoute } from "@/lib/scheduling/v2/travel";
-import {
-  RunOptimizationButton,
-  ReoptimizeButton,
-} from "@/components/admin/optimization-client";
+import { SystemHealthStatus } from "@/components/admin/optimization-client";
 import {
   Route,
   Clock,
   MapPin,
   TrendingUp,
-  Zap,
+  CheckCircle2,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Route Optimization | Admin",
-  description: "Optimize engineer routes and scheduling",
+  title: "System Health | Admin",
+  description: "Scheduling performance and allocation metrics",
 };
 
-export default async function OptimizationPage() {
+export default async function SystemHealthPage() {
   const user = await getOrCreateUser();
 
   if (user.role !== "ADMIN") {
@@ -79,9 +76,9 @@ export default async function OptimizationPage() {
 
   return (
     <AdminPage
-      title="Route Optimization"
-      description="Optimize travel routes and improve efficiency"
-      actions={<RunOptimizationButton />}
+      title="System Health"
+      description="Scheduling performance and route efficiency"
+      actions={<SystemHealthStatus />}
     >
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -123,7 +120,7 @@ export default async function OptimizationPage() {
 
       {/* Tomorrow's Routes */}
       <h2 className="text-lg font-semibold mb-4">
-        Tomorrow's Routes - {format(tomorrow, "EEEE, MMMM d")}
+        Tomorrow&apos;s Routes - {format(tomorrow, "EEEE, MMMM d")}
       </h2>
 
       {routeData.length > 0 ? (
@@ -143,29 +140,23 @@ export default async function OptimizationPage() {
                       </CardDescription>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant="outline"
-                      className={
-                        route.efficiencyRating >= 80
-                          ? "bg-green-50 text-green-700 border-0"
-                          : route.efficiencyRating >= 50
-                          ? "bg-yellow-50 text-yellow-700 border-0"
-                          : "bg-red-50 text-red-700 border-0"
-                      }
-                    >
-                      <TrendingUp className="w-3 h-3 mr-1" />
-                      {route.efficiencyRating >= 80
-                        ? "Optimized"
+                  <Badge
+                    variant="outline"
+                    className={
+                      route.efficiencyRating >= 80
+                        ? "bg-green-50 text-green-700 border-0"
                         : route.efficiencyRating >= 50
-                        ? "Moderate"
-                        : "Needs Optimization"}
-                    </Badge>
-                    <ReoptimizeButton
-                      engineerId={route.engineer.id}
-                      date={tomorrow}
-                    />
-                  </div>
+                        ? "bg-yellow-50 text-yellow-700 border-0"
+                        : "bg-red-50 text-red-700 border-0"
+                    }
+                  >
+                    <TrendingUp className="w-3 h-3 mr-1" />
+                    {route.efficiencyRating >= 80
+                      ? "Optimized"
+                      : route.efficiencyRating >= 50
+                      ? "Moderate"
+                      : "Needs Attention"}
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent>
@@ -215,18 +206,30 @@ export default async function OptimizationPage() {
         </Card>
       )}
 
-      {/* Optimization Tips */}
-      <div className="mt-8 p-4 bg-purple-50 border border-purple-100 rounded-lg">
-        <h4 className="font-medium text-purple-900 mb-2 flex items-center gap-2">
-          <Zap className="w-4 h-4" />
-          How Optimization Works
+      {/* System Status */}
+      <div className="mt-8 p-4 bg-green-50 border border-green-100 rounded-lg">
+        <h4 className="font-medium text-green-900 mb-2 flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4" />
+          System Status
         </h4>
-        <ul className="text-sm text-purple-800 space-y-1">
-          <li>• The optimizer considers travel distance, job duration, and time slots</li>
-          <li>• Jobs are reordered to minimize total travel time</li>
-          <li>• Cluster opportunities are identified for nearby bookings</li>
-          <li>• Swap recommendations suggest better engineer-job matches</li>
-        </ul>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-green-800">
+          <div>
+            <div className="text-green-600 font-medium">Allocator</div>
+            <div>V2 Multi-Objective (13 factors)</div>
+          </div>
+          <div>
+            <div className="text-green-600 font-medium">Auto-Allocation</div>
+            <div>Active on booking creation</div>
+          </div>
+          <div>
+            <div className="text-green-600 font-medium">Pricing Engine</div>
+            <div>Dynamic (5 rule types)</div>
+          </div>
+          <div>
+            <div className="text-green-600 font-medium">Route Optimization</div>
+            <div>Continuous</div>
+          </div>
+        </div>
       </div>
     </AdminPage>
   );

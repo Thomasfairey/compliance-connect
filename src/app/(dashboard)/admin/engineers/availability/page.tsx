@@ -1,10 +1,9 @@
 import { redirect } from "next/navigation";
 import { getOrCreateUser } from "@/lib/auth";
 import { AdminPage } from "@/components/admin/admin-page-header";
-import { getEngineersAvailability, initializeAllEngineersAvailability } from "@/lib/actions/engineer";
+import { getEngineersAvailability } from "@/lib/actions/engineer";
 import { startOfWeek, endOfWeek, addDays, format } from "date-fns";
 import { AdminAvailabilityClient } from "@/components/admin/admin-availability-client";
-import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 

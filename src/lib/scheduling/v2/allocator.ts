@@ -29,15 +29,12 @@ import type {
 export async function findBestEngineerV2(
   bookingId: string,
   options: {
-    weights?: ScoringWeights;
     shadowMode?: boolean;
     preferredDate?: Date;
   } = {}
 ): Promise<AllocationResultV2> {
-  const {
-    weights = { customer: 0.4, engineer: 0.3, platform: 0.3 },
-    shadowMode = false,
-  } = options;
+  const weights: ScoringWeights = { customer: 0.4, engineer: 0.3, platform: 0.3 };
+  const { shadowMode = false } = options;
 
   try {
     // Get booking details
@@ -167,7 +164,6 @@ export async function findBestEngineerV2(
 export async function autoAllocateBookingV2(
   bookingId: string,
   options: {
-    weights?: ScoringWeights;
     shadowMode?: boolean;
   } = {}
 ): Promise<AllocationResultV2> {
@@ -245,7 +241,7 @@ export async function getViableSlots(
 
   // Generate slots for each engineer x date x time combination
   for (const engineer of engineers) {
-    let currentDate = new Date(dateRange.start);
+    const currentDate = new Date(dateRange.start);
 
     while (currentDate <= dateRange.end && slots.length < maxSlots) {
       // Check engineer availability for this date

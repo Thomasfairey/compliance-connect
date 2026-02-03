@@ -6,7 +6,7 @@
  */
 
 import { db } from "@/lib/db";
-import type { PricingRule as PricingRuleModel } from "@prisma/client";
+import type { PricingRule as PricingRuleModel, BookingStatus, Prisma } from "@prisma/client";
 import {
   calculateDistance,
   lookupPostcode,
@@ -364,18 +364,16 @@ async function countNearbyJobs(
   endOfDay.setHours(23, 59, 59, 999);
 
   // Build query
-  const whereClause: any = {
+  const statuses: BookingStatus[] = ["CONFIRMED", "IN_PROGRESS", "EN_ROUTE", "ON_SITE"];
+  const whereClause: Prisma.BookingWhereInput = {
     scheduledDate: { gte: startOfDay, lte: endOfDay },
-    status: { in: ["CONFIRMED", "IN_PROGRESS", "EN_ROUTE", "ON_SITE"] },
+    status: { in: statuses },
     site: {
       latitude: { not: null },
       longitude: { not: null },
     },
+    ...(engineerId ? { engineerId } : {}),
   };
-
-  if (engineerId) {
-    whereClause.engineerId = engineerId;
-  }
 
   const jobs = await db.booking.findMany({
     where: whereClause,

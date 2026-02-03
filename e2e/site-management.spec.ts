@@ -173,7 +173,6 @@ test.describe("Site Profile Questionnaire", () => {
     const siteLink = page.locator("a[href*='/sites/']").first();
 
     if (await siteLink.isVisible()) {
-      const href = await siteLink.getAttribute("href");
       await siteLink.click();
 
       // Look for questionnaire link or button

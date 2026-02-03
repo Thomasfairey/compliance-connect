@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format, addDays, startOfDay } from "date-fns";
+import { format, startOfDay } from "date-fns";
 import {
   ArrowLeft,
   ArrowRight,
@@ -27,8 +27,6 @@ import {
   MapPin,
   Briefcase,
   Wrench,
-  Clock,
-  PoundSterling,
   Save,
   AlertCircle,
 } from "lucide-react";

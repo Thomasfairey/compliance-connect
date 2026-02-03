@@ -13,8 +13,10 @@ import {
   CheckCircle2,
   Clock,
   ArrowRight,
+  AlertTriangle,
 } from "lucide-react";
 import { BundlePromoCard } from "@/components/dashboard/bundle-promo-card";
+import { getComplianceStatus } from "@/lib/actions/compliance";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +36,7 @@ export default async function DashboardPage() {
   }
 
   // Fetch customer data
-  const [totalBookings, pendingBookings, completedBookings, totalSites, bookings, bundles] =
+  const [totalBookings, pendingBookings, completedBookings, totalSites, bookings, bundles, complianceStatuses] =
     await Promise.all([
       db.booking.count({ where: { customerId: user.id } }),
       db.booking.count({
@@ -55,12 +57,17 @@ export default async function DashboardPage() {
         where: { isActive: true },
         select: { discountPercent: true },
       }),
+      getComplianceStatus(),
     ]);
 
   // Calculate max bundle discount
   const maxBundleDiscount = bundles.length > 0
     ? Math.max(...bundles.map((b) => b.discountPercent))
     : 25;
+
+  const overdueItems = complianceStatuses.filter((s) => s.status === "OVERDUE");
+  const dueSoonItems = complianceStatuses.filter((s) => s.status === "DUE_SOON");
+  const urgentItems = [...overdueItems, ...dueSoonItems];
 
   const recentBookings = bookings.slice(0, 5);
   const upcomingBookings = bookings.filter(
@@ -83,6 +90,67 @@ export default async function DashboardPage() {
           </Link>
         }
       />
+
+      {/* Compliance Urgency + Book a Test CTA */}
+      {urgentItems.length > 0 ? (
+        <div className="mb-8 rounded-2xl border-2 border-red-200 bg-gradient-to-r from-red-50 to-amber-50 p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+                <h2 className="text-lg font-bold text-gray-900">
+                  {overdueItems.length > 0
+                    ? `${overdueItems.length} Overdue Test${overdueItems.length > 1 ? "s" : ""}`
+                    : `${dueSoonItems.length} Test${dueSoonItems.length > 1 ? "s" : ""} Due Soon`}
+                </h2>
+              </div>
+              <div className="space-y-1">
+                {urgentItems.slice(0, 3).map((item) => (
+                  <p key={`${item.siteId}-${item.serviceId}`} className="text-sm text-gray-600">
+                    <span className="font-medium">{item.serviceName}</span>
+                    {" at "}{item.siteName}
+                    {" — "}
+                    <span className={item.status === "OVERDUE" ? "text-red-600 font-medium" : "text-amber-600 font-medium"}>
+                      {item.status === "OVERDUE"
+                        ? `${Math.abs(item.daysUntilDue)} days overdue`
+                        : `due in ${item.daysUntilDue} days`}
+                    </span>
+                  </p>
+                ))}
+                {urgentItems.length > 3 && (
+                  <Link href="/compliance" className="text-sm text-blue-600 hover:underline">
+                    + {urgentItems.length - 3} more...
+                  </Link>
+                )}
+              </div>
+            </div>
+            <Link href="/bookings/new" className="shrink-0">
+              <Button size="lg" className="bg-red-600 hover:bg-red-700 text-white font-semibold shadow-lg">
+                <Plus className="h-5 w-5 mr-2" />
+                Book a Test Now
+              </Button>
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <div className="mb-8 rounded-2xl bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                <h2 className="text-lg font-bold text-gray-900">All Compliant</h2>
+              </div>
+              <p className="text-sm text-gray-600">All your compliance tests are up to date.</p>
+            </div>
+            <Link href="/bookings/new" className="shrink-0">
+              <Button size="lg">
+                <Plus className="h-5 w-5 mr-2" />
+                Book a Test
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

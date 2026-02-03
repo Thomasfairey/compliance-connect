@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { BookingStatus } from "@prisma/client";
 import { generateCompletionCertificate } from "./certificates";
+import { notifyCustomerBookingUpdate } from "./notifications";
 
 type StatusTransitionResult = {
   success: boolean;
@@ -140,6 +141,10 @@ export async function declineJob(
 
     await logStatusChange(bookingId, "CONFIRMED", "DECLINED", user.id, reason);
 
+    notifyCustomerBookingUpdate(bookingId, "DELAYED").catch((err) => {
+      console.error("Failed to notify customer:", err);
+    });
+
     revalidatePath(`/engineer/jobs/${bookingId}`);
     revalidatePath("/engineer/jobs");
     revalidatePath("/admin/bookings");
@@ -188,6 +193,10 @@ export async function startEnRoute(
 
     await logStatusChange(bookingId, "CONFIRMED", "EN_ROUTE", user.id);
 
+    notifyCustomerBookingUpdate(bookingId, "EN_ROUTE").catch((err) => {
+      console.error("Failed to notify customer:", err);
+    });
+
     revalidatePath(`/engineer/jobs/${bookingId}`);
     revalidatePath("/engineer/jobs");
 
@@ -234,6 +243,10 @@ export async function arriveOnSite(
 
     await logStatusChange(bookingId, "EN_ROUTE", "ON_SITE", user.id);
 
+    notifyCustomerBookingUpdate(bookingId, "ARRIVED").catch((err) => {
+      console.error("Failed to notify customer:", err);
+    });
+
     revalidatePath(`/engineer/jobs/${bookingId}`);
     revalidatePath("/engineer/jobs");
 
@@ -279,6 +292,10 @@ export async function startWork(
     });
 
     await logStatusChange(bookingId, "ON_SITE", "IN_PROGRESS", user.id);
+
+    notifyCustomerBookingUpdate(bookingId, "STARTED").catch((err) => {
+      console.error("Failed to notify customer:", err);
+    });
 
     revalidatePath(`/engineer/jobs/${bookingId}`);
     revalidatePath("/engineer/jobs");
@@ -340,6 +357,10 @@ export async function completeJob(
 
     await logStatusChange(bookingId, "IN_PROGRESS", "COMPLETED", user.id);
 
+    notifyCustomerBookingUpdate(bookingId, "COMPLETED").catch((err) => {
+      console.error("Failed to notify customer:", err);
+    });
+
     // Generate completion certificate in the background
     generateCompletionCertificate(bookingId).catch((err) => {
       console.error("Failed to generate certificate:", err);
@@ -392,6 +413,10 @@ export async function markRequiresRevisit(
     });
 
     await logStatusChange(bookingId, "IN_PROGRESS", "REQUIRES_REVISIT", user.id, reason);
+
+    notifyCustomerBookingUpdate(bookingId, "REQUIRES_REVISIT").catch((err) => {
+      console.error("Failed to notify customer:", err);
+    });
 
     revalidatePath(`/engineer/jobs/${bookingId}`);
     revalidatePath("/engineer/jobs");

@@ -211,8 +211,8 @@ describe("Engineer Allocation", () => {
       const { lookupPostcodes } = await import("@/lib/postcodes");
       vi.mocked(lookupPostcodes).mockResolvedValue({
         success: false,
-        error: "Network error",
-        results: [],
+        results: new Map(),
+        errors: ["Network error"],
       });
 
       const result = await lookupPostcodes(["INVALID"]);

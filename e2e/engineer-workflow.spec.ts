@@ -12,15 +12,6 @@ async function setupEngineerAuth(page: Page) {
   }
 }
 
-// Helper to set up admin auth bypass
-async function setupAdminAuth(page: Page) {
-  try {
-    await page.goto(`${BASE_URL}/api/auth/ticket?role=admin`, { timeout: 5000 });
-  } catch {
-    // Ticket auth not available
-  }
-}
-
 test.describe("Engineer Job Workflow - Complete Flow", () => {
   test.beforeEach(async ({ page }) => {
     await setupEngineerAuth(page);

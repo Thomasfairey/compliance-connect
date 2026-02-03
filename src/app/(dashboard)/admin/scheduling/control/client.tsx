@@ -87,7 +87,7 @@ export function SchedulingControlClient({
 
       setHasChanges(false);
       toast.success("Scheduling settings saved successfully");
-    } catch (error) {
+    } catch {
       toast.error("Failed to save settings");
     } finally {
       setSaving(false);
@@ -120,7 +120,7 @@ export function SchedulingControlClient({
     >
       {hasChanges && (
         <div className="mb-6 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">
-          You have unsaved changes. Click "Save Changes" to apply them.
+          You have unsaved changes. Click &quot;Save Changes&quot; to apply them.
         </div>
       )}
 

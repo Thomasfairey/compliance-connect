@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useState, createContext, useContext, ReactNode } from "react";
+import { useEffect, useState, createContext, useContext, ReactNode, useCallback } from "react";
 import { registerServiceWorker, isOnline, getPendingRequestCount } from "@/lib/offline";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, X, Download, WifiOff, Check } from "lucide-react";
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+}
 
 interface PWAContextValue {
   isOnline: boolean;
@@ -33,17 +38,23 @@ export function PWAProvider({ children }: PWAProviderProps) {
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [isInstallable, setIsInstallable] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showUpdateBanner, setShowUpdateBanner] = useState(false);
   const [showOfflineBanner, setShowOfflineBanner] = useState(false);
   const [showSyncBanner, setShowSyncBanner] = useState(false);
   const [syncedCount, setSyncedCount] = useState(0);
+
+  const updatePendingCount = useCallback(async () => {
+    const count = await getPendingRequestCount();
+    setPendingSyncCount(count);
+  }, []);
 
   useEffect(() => {
     // Register service worker
     registerServiceWorker();
 
     // Check initial online state
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOnline(isOnline());
 
     // Online/offline handlers
@@ -79,7 +90,7 @@ export function PWAProvider({ children }: PWAProviderProps) {
     // Install prompt handler
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
-      setDeferredPrompt(e);
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
       setIsInstallable(true);
     };
 
@@ -104,12 +115,7 @@ export function PWAProvider({ children }: PWAProviderProps) {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
       clearInterval(interval);
     };
-  }, []);
-
-  const updatePendingCount = async () => {
-    const count = await getPendingRequestCount();
-    setPendingSyncCount(count);
-  };
+  }, [updatePendingCount]);
 
   const installApp = async () => {
     if (!deferredPrompt) return;
@@ -181,7 +187,7 @@ export function PWAProvider({ children }: PWAProviderProps) {
         <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500 text-white px-4 py-2">
           <div className="flex items-center justify-center gap-2 max-w-md mx-auto">
             <WifiOff className="w-4 h-4" />
-            <span className="text-sm">You're offline</span>
+            <span className="text-sm">You&apos;re offline</span>
             {pendingSyncCount > 0 && (
               <span className="text-xs bg-amber-600 px-2 py-0.5 rounded-full">
                 {pendingSyncCount} pending

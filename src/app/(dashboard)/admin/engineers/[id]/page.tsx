@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getOrCreateUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AdminPage } from "@/components/admin/admin-page-header";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format, subDays } from "date-fns";
@@ -18,7 +18,6 @@ import {
   TrendingUp,
   Clock,
   CheckCircle2,
-  XCircle,
   Edit2,
   Ban,
   UserCheck,

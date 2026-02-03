@@ -5,7 +5,6 @@ import { db } from "@/lib/db";
 import { AdminPage } from "@/components/admin/admin-page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { UtilizationCard } from "@/components/admin/utilization-card";
 import { JobsByCategoryCard } from "@/components/admin/jobs-by-category-card";
 import { GeographicSalesCard } from "@/components/admin/geographic-sales-card";
@@ -22,14 +21,9 @@ import {
   ArrowRight,
   Calendar,
   Users,
-  Wrench,
-  MapPin,
-  CheckCircle2,
-  XCircle,
   Zap,
   Download,
   Bell,
-  Car,
   Receipt,
 } from "lucide-react";
 
@@ -152,7 +146,7 @@ export default async function AdminDashboardPage() {
       type: "error",
       title: `${urgentBookings.length} urgent bookings need allocation`,
       description: "Bookings in the next 2 days without an engineer",
-      href: "/admin/bookings/pending",
+      href: "/admin/scheduling/calendar?filter=unallocated",
     });
   }
   if (overdueCount > 0) {
@@ -243,7 +237,7 @@ export default async function AdminDashboardPage() {
           title="Pending Allocation"
           value={pendingCount}
           icon={Clock}
-          href="/admin/bookings/pending"
+          href="/admin/scheduling/calendar?filter=unallocated"
           className={pendingCount > 0 ? "bg-amber-50 border-amber-100" : ""}
           highlight={pendingCount > 0}
         />

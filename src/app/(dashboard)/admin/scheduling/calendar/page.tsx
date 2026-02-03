@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getOrCreateUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { CalendarClient } from "./client";
-import { startOfWeek, endOfWeek, addDays } from "date-fns";
+import { startOfWeek, endOfWeek } from "date-fns";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +27,7 @@ export default async function CalendarPage({
   const weekStart = startOfWeek(targetDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(targetDate, { weekStartsOn: 1 });
 
-  const [bookings, engineers] = await Promise.all([
+  const [bookings, engineers, unallocatedCount] = await Promise.all([
     db.booking.findMany({
       where: {
         scheduledDate: {
@@ -54,6 +54,9 @@ export default async function CalendarPage({
         engineerProfile: true,
       },
     }),
+    db.booking.count({
+      where: { status: "PENDING", engineerId: null },
+    }),
   ]);
 
   return (
@@ -61,6 +64,7 @@ export default async function CalendarPage({
       bookings={bookings}
       engineers={engineers}
       initialDate={targetDate.toISOString()}
+      unallocatedCount={unallocatedCount}
     />
   );
 }

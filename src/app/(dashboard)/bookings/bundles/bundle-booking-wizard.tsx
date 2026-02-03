@@ -32,6 +32,7 @@ import {
   Loader2,
   Package,
 } from "lucide-react";
+import type { TimeSlot } from "@/types";
 
 type BundleBookingWizardProps = {
   sites: Array<{
@@ -63,7 +64,7 @@ export function BundleBookingWizard({
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [quote, setQuote] = useState<BundlePriceQuote | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedSlot, setSelectedSlot] = useState<string>("");
+  const [selectedSlot, setSelectedSlot] = useState<TimeSlot | "">("");
 
   const handleSelectBundle = async (bundle: BundleWithServices) => {
     setSelectedBundle(bundle);
@@ -130,7 +131,7 @@ export function BundleBookingWizard({
       } else {
         toast.error(result.error || "Failed to book bundle");
       }
-    } catch (error) {
+    } catch {
       toast.error("An error occurred");
     } finally {
       setIsLoading(false);
@@ -323,7 +324,7 @@ export function BundleBookingWizard({
             <div>
               <Label className="text-base">Time Slot</Label>
               <TimeSlotPicker
-                selected={selectedSlot as any}
+                selected={selectedSlot || undefined}
                 onSelect={(slot) => setSelectedSlot(slot)}
               />
             </div>

@@ -537,3 +537,81 @@ export async function getAllocationLogs(
     return [];
   }
 }
+
+export async function getBookingAllocationExplanation(bookingId: string) {
+  try {
+    const [allocationLogs, scoreLogs] = await Promise.all([
+      db.allocationLog.findMany({
+        where: { bookingId },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      }),
+      db.allocationScoreLog.findMany({
+        where: { bookingId },
+        orderBy: { compositeScore: "desc" },
+        take: 5,
+      }),
+    ]);
+
+    // Get engineer names for score logs
+    const engineerIds = scoreLogs.map((s) => s.engineerId);
+    const engineers = await db.user.findMany({
+      where: { id: { in: engineerIds } },
+      select: { id: true, name: true },
+    });
+
+    const engineerMap = new Map(engineers.map((e) => [e.id, e.name]));
+
+    return {
+      currentAllocation: allocationLogs[0] ?? null,
+      scoredCandidates: scoreLogs.map((log) => ({
+        engineerId: log.engineerId,
+        engineerName: engineerMap.get(log.engineerId) ?? "Unknown",
+        customerScore: log.customerScore,
+        engineerScore: log.engineerScore,
+        platformScore: log.platformScore,
+        compositeScore: log.compositeScore,
+        factors: log.factors as Array<{
+          id: string;
+          name: string;
+          party: string;
+          normalizedScore: number;
+          contribution: number;
+          explanation?: string;
+        }>,
+        wasSelected: log.wasSelected,
+      })),
+    };
+  } catch (error) {
+    console.error("Error fetching allocation explanation:", error);
+    return { currentAllocation: null, scoredCandidates: [] };
+  }
+}
+
+export async function overrideAllocation(
+  bookingId: string,
+  newEngineerId: string,
+  adminReason: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const result = await reallocateBooking(bookingId, newEngineerId, adminReason);
+
+    if (result.success) {
+      await db.allocationLog.create({
+        data: {
+          bookingId,
+          action: "ADMIN_OVERRIDE",
+          toEngineerId: newEngineerId,
+          reason: adminReason,
+        },
+      });
+
+      revalidatePath("/admin/scheduling/calendar");
+    }
+
+    return result;
+  } catch (error) {
+    console.error("Error overriding allocation:", error);
+    return { success: false, error: "Override failed" };
+  }
+}

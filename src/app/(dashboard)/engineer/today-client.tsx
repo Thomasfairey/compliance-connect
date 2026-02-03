@@ -35,6 +35,8 @@ interface TodayJob {
   accessNotes?: string;
   estimatedDuration: number;
   quotedPrice: number;
+  siteLatitude?: number | null;
+  siteLongitude?: number | null;
 }
 
 interface TodayViewClientProps {
@@ -226,9 +228,22 @@ export function TodayViewClient({ userName, jobs: initialJobs, stats }: TodayVie
 
       {/* Current/Next Job Hero */}
       {currentJob ? (
-        <CurrentJobCard job={currentJob} onAction={handleJobAction} />
+        <CurrentJobCard
+          job={currentJob}
+          onAction={handleJobAction}
+          onStatusChange={(newStatus) => {
+            setJobs((prev) => prev.map((j) => j.id === currentJob.id ? { ...j, status: newStatus } : j));
+            router.refresh();
+          }}
+        />
       ) : nextJob ? (
-        <NextJobCard job={nextJob} onStart={() => handleJobAction("ACCEPT")} />
+        <NextJobCard
+          job={nextJob}
+          onStatusChange={(newStatus) => {
+            setJobs((prev) => prev.map((j) => j.id === nextJob.id ? { ...j, status: newStatus } : j));
+            router.refresh();
+          }}
+        />
       ) : jobs.length === 0 ? (
         <NoJobsCard />
       ) : null}
@@ -236,7 +251,7 @@ export function TodayViewClient({ userName, jobs: initialJobs, stats }: TodayVie
       {/* Today's Timeline */}
       {jobs.length > 0 && (
         <div className="px-4 mt-6">
-          <h2 className="text-sm font-medium text-gray-700 mb-3">Today's Schedule</h2>
+          <h2 className="text-sm font-medium text-gray-700 mb-3">Today&apos;s Schedule</h2>
           <JobTimeline jobs={jobs} currentJobId={currentJob?.id} />
         </div>
       )}

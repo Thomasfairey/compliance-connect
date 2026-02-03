@@ -10,9 +10,12 @@ import {
   MapPin,
   Clock,
   Settings,
+  Calendar as CalendarIcon,
+  ClipboardList,
 } from "lucide-react";
 import { BottomNav } from "@/components/engineer/mobile/bottom-nav";
 import { Button } from "@/components/ui/button";
+import { formatDate, getSlotTime } from "@/lib/utils";
 
 interface CalendarJob {
   id: string;
@@ -32,15 +35,26 @@ interface WeekDay {
   isToday: boolean;
 }
 
+interface AvailableJob {
+  id: string;
+  date: string;
+  slot: string;
+  serviceName: string;
+  siteName: string;
+  postcode: string;
+}
+
 interface CalendarClientProps {
   weekDays: WeekDay[];
   jobs: CalendarJob[];
   weekStartDate: string;
+  availableJobs?: AvailableJob[];
 }
 
-export function CalendarClient({ weekDays, jobs, weekStartDate }: CalendarClientProps) {
+export function CalendarClient({ weekDays, jobs, weekStartDate, availableJobs = [] }: CalendarClientProps) {
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"schedule" | "available">("schedule");
 
   const navigateWeek = (direction: "prev" | "next") => {
     const currentStart = parseISO(weekStartDate);
@@ -84,6 +98,34 @@ export function CalendarClient({ weekDays, jobs, weekStartDate }: CalendarClient
         </div>
       </header>
 
+      {/* Tabs */}
+      <div className="bg-white border-b px-4">
+        <div className="flex gap-1">
+          <button
+            onClick={() => setActiveTab("schedule")}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "schedule"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            My Schedule
+          </button>
+          <button
+            onClick={() => setActiveTab("available")}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "available"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Available ({availableJobs.length})
+          </button>
+        </div>
+      </div>
+
+      {activeTab === "schedule" ? (
+      <>
       {/* Week Navigation */}
       <div className="bg-white border-b px-4 py-3">
         <div className="flex items-center justify-between">
@@ -251,6 +293,54 @@ export function CalendarClient({ weekDays, jobs, weekStartDate }: CalendarClient
             )}
           </div>
         </div>
+      )}
+
+      </>
+      ) : (
+      /* Available Jobs Tab */
+      <div className="px-4 mt-4">
+        {availableJobs.length === 0 ? (
+          <div className="py-12 text-center text-gray-500">
+            <ClipboardList className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+            <p className="font-medium">No available jobs this week</p>
+            <p className="text-sm mt-1">Check back later or browse other weeks.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {availableJobs.map((job) => (
+              <Link
+                key={job.id}
+                href={`/engineer/jobs/${job.id}`}
+                className="block bg-white rounded-lg border p-4 active:bg-gray-50"
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="font-medium">{job.serviceName}</div>
+                    <div className="text-sm text-gray-500">{job.siteName}</div>
+                  </div>
+                  <span className="text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-700">
+                    Available
+                  </span>
+                </div>
+                <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                  <span className="flex items-center gap-1">
+                    <CalendarIcon className="w-3.5 h-3.5" />
+                    {format(parseISO(job.date), "EEE d MMM")}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" />
+                    {job.slot === "AM" ? "Morning" : "Afternoon"}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5" />
+                    {job.postcode}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
       )}
 
       {/* Bottom Navigation */}

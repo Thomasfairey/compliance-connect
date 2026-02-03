@@ -742,8 +742,8 @@ export const CUSTOMER_FOCUSED_WEIGHTS: ScoringWeights = {
  * Default feature flags (conservative rollout)
  */
 export const DEFAULT_FEATURE_FLAGS: SchedulingFeatureFlags = {
-  useV2Scorer: false,
-  shadowMode: true,
+  useV2Scorer: true,
+  shadowMode: false,
   clusterPricing: true,
   realtimeOptimization: false,
   customerLtvScoring: true,

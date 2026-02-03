@@ -57,6 +57,8 @@ export default async function EngineerTodayPage() {
     accessNotes: job.site.accessNotes || undefined,
     estimatedDuration: job.estimatedDuration || 60,
     quotedPrice: job.quotedPrice,
+    siteLatitude: job.site.latitude ?? null,
+    siteLongitude: job.site.longitude ?? null,
   }));
 
   // Calculate today's potential earnings

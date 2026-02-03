@@ -14,6 +14,8 @@ import {
   Play,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useJobTracking } from "@/hooks/use-job-tracking";
+import { TrackingIndicator } from "@/components/engineer/tracking-indicator";
 
 interface TodayJob {
   id: string;
@@ -26,11 +28,14 @@ interface TodayJob {
   contactName?: string;
   contactPhone?: string;
   accessNotes?: string;
+  siteLatitude?: number | null;
+  siteLongitude?: number | null;
 }
 
 interface CurrentJobCardProps {
   job: TodayJob;
   onAction: (action: string) => Promise<void>;
+  onStatusChange?: (newStatus: string) => void;
 }
 
 const statusConfig: Record<string, {
@@ -81,9 +86,16 @@ function getNavigationUrl(address: string, postcode: string): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
 }
 
-export function CurrentJobCard({ job, onAction }: CurrentJobCardProps) {
+export function CurrentJobCard({ job, onAction, onStatusChange }: CurrentJobCardProps) {
   const [loading, setLoading] = useState(false);
   const config = statusConfig[job.status];
+  const tracking = useJobTracking({
+    bookingId: job.id,
+    status: job.status,
+    siteLatitude: job.siteLatitude ?? null,
+    siteLongitude: job.siteLongitude ?? null,
+    onStatusChange: (newStatus) => onStatusChange?.(newStatus),
+  });
 
   if (!config) return null;
 
@@ -151,62 +163,77 @@ export function CurrentJobCard({ job, onAction }: CurrentJobCardProps) {
           )}
         </div>
 
-        {/* Navigation Button (when EN_ROUTE) */}
-        {config.showNavigation && (
+        {/* Tracking indicator (EN_ROUTE / ON_SITE) */}
+        {(job.status === "EN_ROUTE" || job.status === "ON_SITE") && (
+          <div className="mt-3">
+            <TrackingIndicator
+              trackingStatus={tracking.trackingStatus}
+              currentDistance={tracking.currentDistance}
+              hasSiteCoords={tracking.hasSiteCoords}
+              isTracking={tracking.isTracking}
+              bookingStatus={job.status}
+              onManualArrive={tracking.manualArrive}
+              onManualStartWork={tracking.manualStartWork}
+              error={tracking.error}
+              variant="card"
+            />
+          </div>
+        )}
+
+        {/* Open in Maps (when EN_ROUTE) */}
+        {job.status === "EN_ROUTE" && (
           <a
             href={getNavigationUrl(job.address, job.postcode)}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-4 w-full bg-white border border-gray-300 text-gray-700 py-3 rounded-lg flex items-center justify-center gap-2"
+            className="mt-3 w-full bg-white border border-gray-300 text-gray-700 py-3 rounded-lg flex items-center justify-center gap-2"
           >
             <ExternalLink className="w-5 h-5" />
             Open in Maps
           </a>
         )}
 
-        {/* Primary Action Button */}
-        {job.status === "IN_PROGRESS" ? (
+        {/* Start Tracking (CONFIRMED) */}
+        {job.status === "CONFIRMED" && (
+          <button
+            onClick={() => tracking.startTracking()}
+            disabled={tracking.isTracking}
+            className="mt-3 w-full bg-blue-600 text-white py-4 rounded-lg flex items-center justify-center gap-2 text-lg font-medium active:scale-[0.98] transition-transform disabled:opacity-70"
+          >
+            {tracking.isTracking ? (
+              <Loader2 className="w-6 h-6 animate-spin" />
+            ) : (
+              <>
+                <Navigation className="w-6 h-6" />
+                Start Tracking
+              </>
+            )}
+          </button>
+        )}
+
+        {/* Complete Job (IN_PROGRESS) */}
+        {job.status === "IN_PROGRESS" && (
           <Link
             href={`/engineer/jobs/${job.id}`}
             className="mt-3 w-full bg-green-600 text-white py-4 rounded-lg flex items-center justify-center gap-2 text-lg font-medium active:scale-[0.98] transition-transform"
           >
-            <ActionIcon className="w-6 h-6" />
+            <CheckCircle className="w-6 h-6" />
             {config.primaryAction.label}
           </Link>
-        ) : (
-          <button
-            onClick={handleAction}
-            disabled={loading}
-            className={`mt-3 w-full ${
-              job.status === "IN_PROGRESS" ? "bg-green-600" : "bg-blue-600"
-            } text-white py-4 rounded-lg flex items-center justify-center gap-2 text-lg font-medium active:scale-[0.98] transition-transform disabled:opacity-70`}
-          >
-            {loading ? (
-              <Loader2 className="w-6 h-6 animate-spin" />
-            ) : (
-              <>
-                <ActionIcon className="w-6 h-6" />
-                {config.primaryAction.label}
-              </>
-            )}
-          </button>
         )}
       </div>
     </div>
   );
 }
 
-export function NextJobCard({ job, onStart }: { job: TodayJob; onStart: () => Promise<void> }) {
-  const [loading, setLoading] = useState(false);
-
-  const handleStart = async () => {
-    setLoading(true);
-    try {
-      await onStart();
-    } finally {
-      setLoading(false);
-    }
-  };
+export function NextJobCard({ job, onStatusChange }: { job: TodayJob; onStatusChange?: (newStatus: string) => void }) {
+  const tracking = useJobTracking({
+    bookingId: job.id,
+    status: job.status,
+    siteLatitude: job.siteLatitude ?? null,
+    siteLongitude: job.siteLongitude ?? null,
+    onStatusChange: (newStatus) => onStatusChange?.(newStatus),
+  });
 
   return (
     <div className="mx-4 mt-4">
@@ -230,16 +257,16 @@ export function NextJobCard({ job, onStart }: { job: TodayJob; onStart: () => Pr
         </div>
 
         <button
-          onClick={handleStart}
-          disabled={loading}
+          onClick={() => tracking.startTracking()}
+          disabled={tracking.isTracking}
           className="mt-4 w-full bg-blue-600 text-white py-4 rounded-lg flex items-center justify-center gap-2 text-lg font-medium active:scale-[0.98] transition-transform disabled:opacity-70"
         >
-          {loading ? (
+          {tracking.isTracking ? (
             <Loader2 className="w-6 h-6 animate-spin" />
           ) : (
             <>
-              <Play className="w-6 h-6" />
-              Start This Job
+              <Navigation className="w-6 h-6" />
+              Start Tracking
             </>
           )}
         </button>

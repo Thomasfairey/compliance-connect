@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   format,
@@ -14,8 +14,8 @@ import {
 } from "date-fns";
 import { AdminPage } from "@/components/admin/admin-page-header";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -24,15 +24,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
   ChevronLeft,
   ChevronRight,
-  Calendar,
-  Clock,
   MapPin,
   User,
   Filter,
+  AlertTriangle,
+  ExternalLink,
+  Loader2,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { AllocationExplanation } from "@/components/admin/allocation-explanation";
+import { OverrideDialog } from "@/components/admin/override-dialog";
 import type { Booking, Service, Site, User as UserType } from "@prisma/client";
 
 interface BookingWithRelations extends Booking {
@@ -50,6 +61,7 @@ interface CalendarClientProps {
   bookings: BookingWithRelations[];
   engineers: EngineerWithProfile[];
   initialDate: string;
+  unallocatedCount?: number;
 }
 
 const timeSlots = [
@@ -65,21 +77,43 @@ const statusColors: Record<string, string> = {
   CANCELLED: "bg-gray-100 text-gray-500 border-gray-200",
 };
 
+function getBookingStyle(booking: BookingWithRelations): string {
+  if (!booking.engineerId) {
+    return "bg-red-50 text-red-800 border-red-300 border-dashed";
+  }
+  return statusColors[booking.status] ?? statusColors.PENDING;
+}
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+    minimumFractionDigits: 0,
+  }).format(amount);
+}
+
 export function CalendarClient({
   bookings,
   engineers,
   initialDate,
+  unallocatedCount = 0,
 }: CalendarClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
+
+  const initialFilter = searchParams.get("filter") === "unallocated" ? "unallocated" : "all";
   const [currentDate, setCurrentDate] = useState(new Date(initialDate));
-  const [selectedEngineer, setSelectedEngineer] = useState<string>("all");
-  const [view, setView] = useState<"week" | "day">("week");
+  const [selectedEngineer, setSelectedEngineer] = useState<string>(initialFilter);
+  const [selectedBooking, setSelectedBooking] = useState<BookingWithRelations | null>(null);
+  const [allocating, setAllocating] = useState(false);
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   const filteredBookings = useMemo(() => {
     return bookings.filter((booking) => {
+      if (selectedEngineer === "unallocated") return !booking.engineerId;
       if (selectedEngineer !== "all" && booking.engineerId !== selectedEngineer) {
         return false;
       }
@@ -109,26 +143,50 @@ export function CalendarClient({
     router.push("/admin/scheduling/calendar?date=today");
   };
 
+  const handleAllocate = async (bookingId: string) => {
+    setAllocating(true);
+    try {
+      const response = await fetch("/api/admin/allocate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success(`Allocated to ${data.engineerName}`);
+        setSelectedBooking(null);
+        startTransition(() => router.refresh());
+      } else {
+        toast.error(data.error || "Allocation failed");
+      }
+    } catch {
+      toast.error("Failed to allocate booking");
+    } finally {
+      setAllocating(false);
+    }
+  };
+
   const stats = {
     total: filteredBookings.length,
-    pending: filteredBookings.filter((b) => b.status === "PENDING").length,
+    unallocated: filteredBookings.filter((b) => !b.engineerId).length,
     confirmed: filteredBookings.filter((b) => b.status === "CONFIRMED").length,
     completed: filteredBookings.filter((b) => b.status === "COMPLETED").length,
   };
 
   return (
     <AdminPage
-      title="Master Calendar"
+      title="Calendar"
       description={`Week of ${format(weekStart, "MMM d, yyyy")}`}
       actions={
         <div className="flex items-center gap-3">
           <Select value={selectedEngineer} onValueChange={setSelectedEngineer}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[200px]">
               <Filter className="w-4 h-4 mr-2" />
               <SelectValue placeholder="All Engineers" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Engineers</SelectItem>
+              <SelectItem value="all">All Bookings</SelectItem>
+              <SelectItem value="unallocated">Unallocated Only</SelectItem>
               {engineers.map((eng) => (
                 <SelectItem key={eng.id} value={eng.id}>
                   {eng.name}
@@ -147,10 +205,15 @@ export function CalendarClient({
             <div className="text-sm text-gray-500">This Week</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className={stats.unallocated > 0 ? "border-red-200" : ""}>
           <CardContent className="pt-4 pb-3">
-            <div className="text-2xl font-bold text-amber-600">{stats.pending}</div>
-            <div className="text-sm text-gray-500">Pending</div>
+            <div className="flex items-center gap-2">
+              {stats.unallocated > 0 && <AlertTriangle className="w-4 h-4 text-red-500" />}
+              <div className={cn("text-2xl font-bold", stats.unallocated > 0 ? "text-red-600" : "text-gray-400")}>
+                {stats.unallocated}
+              </div>
+            </div>
+            <div className="text-sm text-gray-500">Unallocated</div>
           </CardContent>
         </Card>
         <Card>
@@ -166,6 +229,19 @@ export function CalendarClient({
           </CardContent>
         </Card>
       </div>
+
+      {/* Global unallocated banner */}
+      {unallocatedCount > 0 && selectedEngineer !== "unallocated" && (
+        <button
+          onClick={() => setSelectedEngineer("unallocated")}
+          className="w-full mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm flex items-center gap-2 hover:bg-red-100 transition-colors text-left"
+        >
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          <span>
+            <strong>{unallocatedCount}</strong> booking{unallocatedCount !== 1 ? "s" : ""} awaiting allocation across all weeks.
+          </span>
+        </button>
+      )}
 
       {/* Navigation */}
       <div className="flex items-center justify-between mb-4">
@@ -230,32 +306,37 @@ export function CalendarClient({
                 >
                   <div className="space-y-1">
                     {dayBookings.map((booking) => (
-                      <Link
+                      <button
                         key={booking.id}
-                        href={`/admin/bookings/${booking.id}`}
-                        className="block"
+                        onClick={() => setSelectedBooking(booking)}
+                        className="block w-full text-left"
                       >
                         <div
                           className={cn(
-                            "p-2 rounded text-xs border",
-                            statusColors[booking.status]
+                            "p-2 rounded text-xs border transition-shadow hover:shadow-md",
+                            getBookingStyle(booking)
                           )}
                         >
                           <div className="font-medium truncate">
                             {booking.service.name}
                           </div>
                           <div className="flex items-center gap-1 text-gray-600 mt-1">
-                            <MapPin className="w-3 h-3" />
+                            <MapPin className="w-3 h-3 flex-shrink-0" />
                             <span className="truncate">{booking.site.postcode}</span>
                           </div>
-                          {booking.engineer && (
+                          {booking.engineer ? (
                             <div className="flex items-center gap-1 text-gray-600 mt-0.5">
-                              <User className="w-3 h-3" />
+                              <User className="w-3 h-3 flex-shrink-0" />
                               <span className="truncate">{booking.engineer.name}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 text-red-600 mt-0.5 font-medium">
+                              <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                              <span>Unassigned</span>
                             </div>
                           )}
                         </div>
-                      </Link>
+                      </button>
                     ))}
                     {dayBookings.length === 0 && (
                       <div className="h-full flex items-center justify-center text-gray-300 text-xs">
@@ -271,8 +352,12 @@ export function CalendarClient({
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 mt-4 text-sm">
+      <div className="flex items-center gap-4 mt-4 text-sm flex-wrap">
         <span className="text-gray-500">Status:</span>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded border border-dashed border-red-300 bg-red-50" />
+          <span>Unallocated</span>
+        </div>
         {Object.entries(statusColors).map(([status, color]) => (
           <div key={status} className="flex items-center gap-1">
             <div className={cn("w-3 h-3 rounded", color.split(" ")[0])} />
@@ -280,6 +365,144 @@ export function CalendarClient({
           </div>
         ))}
       </div>
+
+      {/* Booking Side Panel */}
+      <Sheet open={!!selectedBooking} onOpenChange={(open) => !open && setSelectedBooking(null)}>
+        <SheetContent className="sm:max-w-md">
+          {selectedBooking && (
+            <>
+              <SheetHeader>
+                <SheetTitle className="flex items-center gap-2">
+                  {selectedBooking.service.name}
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-xs",
+                      !selectedBooking.engineerId
+                        ? "bg-red-50 text-red-700 border-red-200"
+                        : selectedBooking.status === "CONFIRMED"
+                        ? "bg-blue-50 text-blue-700 border-blue-200"
+                        : "bg-amber-50 text-amber-700 border-amber-200"
+                    )}
+                  >
+                    {!selectedBooking.engineerId ? "Unallocated" : selectedBooking.status}
+                  </Badge>
+                </SheetTitle>
+              </SheetHeader>
+
+              <div className="mt-6 space-y-4">
+                {/* Customer */}
+                <div>
+                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Customer</div>
+                  <div className="mt-1 font-medium">{selectedBooking.customer.name}</div>
+                  <div className="text-sm text-gray-500">{selectedBooking.customer.email}</div>
+                </div>
+
+                {/* Site */}
+                <div>
+                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Site</div>
+                  <div className="mt-1 font-medium">{selectedBooking.site.name}</div>
+                  <div className="text-sm text-gray-500 flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />
+                    {selectedBooking.site.postcode}
+                  </div>
+                </div>
+
+                {/* Date & Slot */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Date</div>
+                    <div className="mt-1 font-medium">
+                      {selectedBooking.scheduledDate
+                        ? format(new Date(selectedBooking.scheduledDate), "EEE, MMM d yyyy")
+                        : "Not set"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Slot</div>
+                    <div className="mt-1 font-medium">{selectedBooking.slot}</div>
+                  </div>
+                </div>
+
+                {/* Price */}
+                <div>
+                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Price</div>
+                  <div className="mt-1 font-medium">{formatCurrency(selectedBooking.quotedPrice)}</div>
+                </div>
+
+                {/* Engineer */}
+                <div>
+                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Assigned Engineer</div>
+                  {selectedBooking.engineer ? (
+                    <div className="mt-1 font-medium flex items-center gap-2">
+                      <User className="w-4 h-4 text-gray-400" />
+                      {selectedBooking.engineer.name}
+                    </div>
+                  ) : (
+                    <div className="mt-1 text-red-600 font-medium flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4" />
+                      No engineer assigned
+                    </div>
+                  )}
+                </div>
+
+                {/* Reference */}
+                <div>
+                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Reference</div>
+                  <div className="mt-1 font-mono text-sm">{selectedBooking.reference}</div>
+                </div>
+
+                {/* Allocation Explanation (allocated bookings) */}
+                {selectedBooking.engineerId && (
+                  <AllocationExplanation bookingId={selectedBooking.id} />
+                )}
+
+                {/* Actions */}
+                <div className="pt-4 border-t space-y-2">
+                  {!selectedBooking.engineerId && (
+                    <Button
+                      className="w-full"
+                      onClick={() => handleAllocate(selectedBooking.id)}
+                      disabled={allocating}
+                    >
+                      {allocating ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Allocating...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-4 h-4 mr-2" />
+                          Auto-Allocate
+                        </>
+                      )}
+                    </Button>
+                  )}
+
+                  {selectedBooking.engineerId && (
+                    <OverrideDialog
+                      bookingId={selectedBooking.id}
+                      currentEngineerId={selectedBooking.engineerId}
+                      engineers={engineers.map((e) => ({ id: e.id, name: e.name ?? "Unknown" }))}
+                      onComplete={() => {
+                        setSelectedBooking(null);
+                        startTransition(() => router.refresh());
+                      }}
+                    />
+                  )}
+
+                  <Link href={`/admin/bookings/${selectedBooking.id}`} className="block">
+                    <Button variant="outline" className="w-full">
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      View Full Details
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </AdminPage>
   );
 }

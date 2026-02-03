@@ -124,7 +124,7 @@ async function main() {
 
   const hashedPassword = await bcrypt.hash("demo123", 10);
 
-  const demoAdmin = await prisma.user.create({
+  await prisma.user.create({
     data: {
       email: "admin@demo.com",
       password: hashedPassword,
@@ -337,7 +337,7 @@ async function main() {
   }
 
   // Create a site for demo customer
-  const demoSite = await prisma.site.create({
+  await prisma.site.create({
     data: {
       userId: demoCustomer.id,
       name: "Acme HQ",
@@ -355,6 +355,32 @@ async function main() {
           estimatedCircuits: 12,
           estimatedExtinguishers: 5,
           typicalOccupancy: 30,
+          questionnaireComplete: true,
+          completedAt: new Date(),
+        },
+      },
+    },
+  });
+
+  // Create additional site for demo customer
+  const demoSite2 = await prisma.site.create({
+    data: {
+      userId: demoCustomer.id,
+      name: "Acme Warehouse",
+      address: "45 Industrial Road, London",
+      postcode: "SW1A 2AA",
+      profile: {
+        create: {
+          buildingType: "WAREHOUSE",
+          industryType: "TECHNOLOGY",
+          floorArea: 1200,
+          numberOfFloors: 1,
+          estimatedPATItems: 80,
+          estimatedFireZones: 6,
+          estimatedEmergencyLights: 30,
+          estimatedCircuits: 20,
+          estimatedExtinguishers: 8,
+          typicalOccupancy: 15,
           questionnaireComplete: true,
           completedAt: new Date(),
         },
@@ -876,6 +902,107 @@ async function main() {
   console.log(`  ✓ Jan: ${janDays.length * 6} avg, Dec: ${decDays.length * 4} avg bookings`);
 
   console.log(`✅ Created ${bookings.length} total bookings\n`);
+
+  // =====================
+  // CREATE DEMO ENGINEER BOOKINGS (for busy schedule demo)
+  // =====================
+  console.log("🛠️ Creating demo engineer's busy schedule...");
+
+  // Get demo engineer's profile
+  const demoEngProfile = await prisma.engineerProfile.findUnique({
+    where: { userId: demoEngineer.id },
+  });
+
+  // Get demo customer's sites
+  const demoCustomerSites = await prisma.site.findMany({
+    where: { userId: demoCustomer.id },
+  });
+
+  // Helper function for demo bookings
+  async function createDemoEngineerBooking(
+    date: Date,
+    slot: string,
+    status: BookingStatus,
+    serviceIndex: number,
+    siteIndex: number
+  ) {
+    const service = services[serviceIndex % services.length];
+    const site = demoCustomerSites[siteIndex % demoCustomerSites.length];
+    const qty = randomInt(30, 80);
+    const basePrice = Math.max(service.basePrice * qty, service.minCharge);
+
+    return prisma.booking.create({
+      data: {
+        reference: generateBookingRef(),
+        customerId: demoCustomer.id,
+        siteId: site.id,
+        serviceId: service.id,
+        engineerId: demoEngineer.id,
+        status,
+        scheduledDate: date,
+        slot,
+        estimatedQty: qty,
+        quotedPrice: basePrice * 0.9, // 10% discount
+        originalPrice: basePrice,
+        discountPercent: 10,
+        estimatedDuration: Math.ceil(service.baseMinutes + service.minutesPerUnit * qty),
+        startedAt: status === "IN_PROGRESS" || status === "COMPLETED" || status === "ON_SITE" ? date : null,
+        completedAt: status === "COMPLETED" ? date : null,
+        arrivedAt: status === "ON_SITE" || status === "IN_PROGRESS" || status === "COMPLETED" ? date : null,
+      },
+    });
+  }
+
+  // Today's jobs for demo engineer (make it look busy!)
+  const demoToday = startOfDay(new Date());
+
+  // Morning job - IN_PROGRESS (currently working on)
+  await createDemoEngineerBooking(demoToday, "AM", "IN_PROGRESS", 0, 0);
+
+  // Another morning job - CONFIRMED (next up)
+  await createDemoEngineerBooking(demoToday, "AM", "CONFIRMED", 1, 1);
+
+  // Afternoon jobs - CONFIRMED
+  await createDemoEngineerBooking(demoToday, "PM", "CONFIRMED", 2, 0);
+  await createDemoEngineerBooking(demoToday, "PM", "CONFIRMED", 0, 1);
+
+  // Tomorrow's jobs
+  const tomorrow = addDays(demoToday, 1);
+  await createDemoEngineerBooking(tomorrow, "AM", "CONFIRMED", 0, 0);
+  await createDemoEngineerBooking(tomorrow, "AM", "CONFIRMED", 3, 1);
+  await createDemoEngineerBooking(tomorrow, "PM", "CONFIRMED", 1, 0);
+
+  // Day after tomorrow
+  const dayAfter = addDays(demoToday, 2);
+  await createDemoEngineerBooking(dayAfter, "AM", "CONFIRMED", 4, 0);
+  await createDemoEngineerBooking(dayAfter, "PM", "CONFIRMED", 0, 1);
+  await createDemoEngineerBooking(dayAfter, "PM", "CONFIRMED", 2, 0);
+
+  // Next week jobs
+  for (let i = 3; i <= 7; i++) {
+    const futureDate = addDays(demoToday, i);
+    // Skip weekends
+    if (futureDate.getDay() !== 0 && futureDate.getDay() !== 6) {
+      await createDemoEngineerBooking(futureDate, "AM", "CONFIRMED", i % 5, i % 2);
+      await createDemoEngineerBooking(futureDate, "PM", "CONFIRMED", (i + 1) % 5, (i + 1) % 2);
+    }
+  }
+
+  // Yesterday's completed jobs (for history)
+  const yesterday = subDays(demoToday, 1);
+  await createDemoEngineerBooking(yesterday, "AM", "COMPLETED", 0, 0);
+  await createDemoEngineerBooking(yesterday, "PM", "COMPLETED", 1, 1);
+
+  // Last week completed jobs
+  for (let i = 2; i <= 5; i++) {
+    const pastDate = subDays(demoToday, i);
+    if (pastDate.getDay() !== 0 && pastDate.getDay() !== 6) {
+      await createDemoEngineerBooking(pastDate, "AM", "COMPLETED", i % 5, 0);
+      await createDemoEngineerBooking(pastDate, "PM", "COMPLETED", (i + 1) % 5, 1);
+    }
+  }
+
+  console.log("✅ Created demo engineer's schedule with 20+ jobs\n");
 
   // =====================
   // CREATE COMPLIANCE REMINDERS

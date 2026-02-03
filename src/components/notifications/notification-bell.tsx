@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -25,30 +25,32 @@ export function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    loadUnreadCount();
-    // Poll for new notifications every 30 seconds
-    const interval = setInterval(loadUnreadCount, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    if (open) {
-      loadNotifications();
-    }
-  }, [open]);
-
-  async function loadUnreadCount() {
+  const loadUnreadCount = useCallback(async () => {
     const count = await getUnreadCount();
     setUnreadCount(count);
-  }
+  }, []);
 
-  async function loadNotifications() {
+  const loadNotifications = useCallback(async () => {
     setIsLoading(true);
     const data = await getNotifications();
     setNotifications(data);
     setIsLoading(false);
-  }
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadUnreadCount();
+    // Poll for new notifications every 30 seconds
+    const interval = setInterval(loadUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, [loadUnreadCount]);
+
+  useEffect(() => {
+    if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadNotifications();
+    }
+  }, [open, loadNotifications]);
 
   async function handleMarkAsRead(id: string) {
     await markAsRead(id);
@@ -70,6 +72,7 @@ export function NotificationBell() {
     NEW_JOB: "bg-blue-100 text-blue-600",
     SCHEDULE_CHANGE: "bg-amber-100 text-amber-600",
     REMINDER: "bg-purple-100 text-purple-600",
+    BOOKING_UPDATE: "bg-green-100 text-green-600",
   };
 
   return (

@@ -1,31 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
+
+function getServerSnapshot(): boolean {
+  return false;
+}
 
 export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(false);
-
-  useEffect(() => {
+  const subscribe = (callback: () => void) => {
     const media = window.matchMedia(query);
+    media.addEventListener("change", callback);
+    return () => media.removeEventListener("change", callback);
+  };
 
-    // Set initial value
-    setMatches(media.matches);
+  const getSnapshot = () => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia(query).matches;
+  };
 
-    // Create listener
-    const listener = (event: MediaQueryListEvent) => {
-      setMatches(event.matches);
-    };
-
-    // Add listener
-    media.addEventListener("change", listener);
-
-    // Cleanup
-    return () => {
-      media.removeEventListener("change", listener);
-    };
-  }, [query]);
-
-  return matches;
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
 // Predefined breakpoints matching Tailwind

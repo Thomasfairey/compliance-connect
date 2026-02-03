@@ -5,12 +5,12 @@ import { BookingStatus } from "@prisma/client";
 import {
   Loader2,
   Navigation,
-  MapPin,
-  Play,
   CheckCircle,
   XCircle,
   RotateCcw,
 } from "lucide-react";
+import { useJobTracking } from "@/hooks/use-job-tracking";
+import { TrackingIndicator } from "@/components/engineer/tracking-indicator";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -24,9 +24,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
-  startEnRoute,
-  arriveOnSite,
-  startWork,
   completeJob,
   declineJob,
   markRequiresRevisit,
@@ -36,6 +33,8 @@ type JobStatusWorkflowProps = {
   bookingId: string;
   status: BookingStatus;
   hasSignature: boolean;
+  siteLatitude?: number | null;
+  siteLongitude?: number | null;
   onStatusChange?: (newStatus: BookingStatus) => void;
 };
 
@@ -91,9 +90,18 @@ export function JobStatusWorkflow({
   bookingId,
   status,
   hasSignature,
+  siteLatitude,
+  siteLongitude,
   onStatusChange,
 }: JobStatusWorkflowProps) {
   const [loading, setLoading] = useState(false);
+  const tracking = useJobTracking({
+    bookingId,
+    status,
+    siteLatitude: siteLatitude ?? null,
+    siteLongitude: siteLongitude ?? null,
+    onStatusChange: (newStatus) => onStatusChange?.(newStatus as BookingStatus),
+  });
   const [showDeclineDialog, setShowDeclineDialog] = useState(false);
   const [showRevisitDialog, setShowRevisitDialog] = useState(false);
   const [declineReason, setDeclineReason] = useState("");
@@ -246,15 +254,15 @@ export function JobStatusWorkflow({
           <>
             <Button
               className="w-full"
-              onClick={() => handleAction(() => startEnRoute(bookingId))}
-              disabled={loading}
+              onClick={() => tracking.startTracking()}
+              disabled={loading || tracking.isTracking}
             >
               {loading ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <Navigation className="h-4 w-4 mr-2" />
               )}
-              Start Traveling
+              Start Tracking
             </Button>
             <Button
               variant="outline"
@@ -268,34 +276,18 @@ export function JobStatusWorkflow({
           </>
         )}
 
-        {status === "EN_ROUTE" && (
-          <Button
-            className="w-full"
-            onClick={() => handleAction(() => arriveOnSite(bookingId))}
-            disabled={loading}
-          >
-            {loading ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <MapPin className="h-4 w-4 mr-2" />
-            )}
-            I've Arrived
-          </Button>
-        )}
-
-        {status === "ON_SITE" && (
-          <Button
-            className="w-full"
-            onClick={() => handleAction(() => startWork(bookingId))}
-            disabled={loading}
-          >
-            {loading ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Play className="h-4 w-4 mr-2" />
-            )}
-            Start Work
-          </Button>
+        {(status === "EN_ROUTE" || status === "ON_SITE") && (
+          <TrackingIndicator
+            trackingStatus={tracking.trackingStatus}
+            currentDistance={tracking.currentDistance}
+            hasSiteCoords={tracking.hasSiteCoords}
+            isTracking={tracking.isTracking}
+            bookingStatus={status}
+            onManualArrive={tracking.manualArrive}
+            onManualStartWork={tracking.manualStartWork}
+            error={tracking.error}
+            variant="sidebar"
+          />
         )}
 
         {status === "IN_PROGRESS" && (

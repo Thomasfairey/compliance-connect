@@ -115,7 +115,7 @@ export default async function RevenueReportPage() {
               {data.byService.length === 0 ? (
                 <p className="text-gray-500 text-center py-4">No data available</p>
               ) : (
-                data.byService.map((service, i) => {
+                data.byService.map((service) => {
                   const percentage = Math.round((service.revenue / data.totalRevenue) * 100);
                   return (
                     <div key={service.serviceName}>

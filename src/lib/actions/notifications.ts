@@ -65,6 +65,7 @@ export async function markAsRead(notificationId: string): Promise<{ success: boo
     });
 
     revalidatePath("/engineer");
+    revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
     console.error("Error marking notification as read:", error);
@@ -86,6 +87,7 @@ export async function markAllAsRead(): Promise<{ success: boolean }> {
     });
 
     revalidatePath("/engineer");
+    revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
     console.error("Error marking all as read:", error);
@@ -367,5 +369,56 @@ export async function sendDailyReminders(): Promise<{
   } catch (error) {
     console.error("Error in sendDailyReminders:", error);
     return stats;
+  }
+}
+
+// Notify customer of booking lifecycle updates
+export async function notifyCustomerBookingUpdate(
+  bookingId: string,
+  eventType: "EN_ROUTE" | "ARRIVED" | "STARTED" | "COMPLETED" | "DELAYED" | "REQUIRES_REVISIT"
+): Promise<{ success: boolean }> {
+  try {
+    const booking = await db.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        service: true,
+        site: true,
+      },
+    });
+
+    if (!booking) return { success: false };
+
+    const titles: Record<string, string> = {
+      EN_ROUTE: "Engineer On the Way",
+      ARRIVED: "Engineer Has Arrived",
+      STARTED: "Work In Progress",
+      COMPLETED: "Job Completed",
+      DELAYED: "Booking Rescheduled",
+      REQUIRES_REVISIT: "Revisit Required",
+    };
+
+    const bodies: Record<string, string> = {
+      EN_ROUTE: `Your engineer is on the way for ${booking.service.name} at ${booking.site.name}.`,
+      ARRIVED: `Your engineer has arrived at ${booking.site.name} for ${booking.service.name}.`,
+      STARTED: `Work has begun on ${booking.service.name} at ${booking.site.name}.`,
+      COMPLETED: `${booking.service.name} at ${booking.site.name} has been completed. Your certificate will be available shortly.`,
+      DELAYED: `${booking.service.name} at ${booking.site.name} has been rescheduled.`,
+      REQUIRES_REVISIT: `${booking.service.name} at ${booking.site.name} requires a follow-up visit.`,
+    };
+
+    const result = await createNotification({
+      userId: booking.customerId,
+      type: "BOOKING_UPDATE",
+      title: titles[eventType],
+      body: bodies[eventType],
+      bookingId,
+      actionUrl: `/bookings/${bookingId}`,
+      actionLabel: "View Booking",
+    });
+
+    return result;
+  } catch (error) {
+    console.error("Error notifying customer:", error);
+    return { success: false };
   }
 }

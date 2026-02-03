@@ -59,7 +59,7 @@ export default function OfflinePage() {
             <WifiOff className="w-5 h-5 text-amber-600" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold">You're Offline</h1>
+            <h1 className="text-lg font-semibold">You&apos;re Offline</h1>
             <p className="text-sm text-gray-500">Limited functionality available</p>
           </div>
         </div>
@@ -72,7 +72,7 @@ export default function OfflinePage() {
             <div className="text-center">
               <WifiOff className="w-12 h-12 mx-auto text-gray-400 mb-4" />
               <p className="text-gray-600 mb-4">
-                You're currently offline. Some features may not be available.
+                You&apos;re currently offline. Some features may not be available.
               </p>
               <Button onClick={handleRetry}>
                 <RefreshCw className="w-4 h-4 mr-2" />
@@ -83,7 +83,7 @@ export default function OfflinePage() {
             {pendingCount > 0 && (
               <div className="mt-6 p-3 bg-amber-50 rounded-lg border border-amber-200">
                 <p className="text-sm text-amber-800">
-                  <strong>{pendingCount} action{pendingCount > 1 ? "s" : ""}</strong> will sync when you're back online.
+                  <strong>{pendingCount} action{pendingCount > 1 ? "s" : ""}</strong> will sync when you&apos;re back online.
                 </p>
               </div>
             )}
@@ -93,7 +93,7 @@ export default function OfflinePage() {
         {/* Cached Today's Jobs */}
         <div>
           <h2 className="text-sm font-medium text-gray-700 mb-3">
-            Today's Jobs (Cached)
+            Today&apos;s Jobs (Cached)
           </h2>
 
           {loading ? (
@@ -105,7 +105,7 @@ export default function OfflinePage() {
               <CardContent className="py-8 text-center text-gray-500">
                 <p>No cached jobs available</p>
                 <p className="text-sm mt-1">
-                  Jobs are cached when you're online
+                  Jobs are cached when you&apos;re online
                 </p>
               </CardContent>
             </Card>

@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Building2, MapPin, Calendar, ExternalLink } from "lucide-react";
+import { Plus, MapPin, Calendar, ExternalLink } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export const dynamic = "force-dynamic";

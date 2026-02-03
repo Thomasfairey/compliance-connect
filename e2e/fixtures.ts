@@ -1,4 +1,4 @@
-import { test as base, expect } from "@playwright/test";
+import { test as base, expect, Page } from "@playwright/test";
 import path from "path";
 
 const STORAGE_STATE_DIR = path.join(__dirname, ".auth");
@@ -9,40 +9,40 @@ const STORAGE_STATE_DIR = path.join(__dirname, ".auth");
  */
 
 type AuthFixtures = {
-  customerPage: typeof base;
-  engineerPage: typeof base;
-  adminPage: typeof base;
+  customerPage: Page;
+  engineerPage: Page;
+  adminPage: Page;
 };
 
 // Create fixtures with different auth states
 export const test = base.extend<AuthFixtures>({
   // Customer authenticated context
-  customerPage: async ({ browser }, use) => {
+  customerPage: async ({ browser }, callback) => {
     const context = await browser.newContext({
       storageState: path.join(STORAGE_STATE_DIR, "customer.json"),
     });
     const page = await context.newPage();
-    await use(page as any);
+    await callback(page);
     await context.close();
   },
 
   // Engineer authenticated context
-  engineerPage: async ({ browser }, use) => {
+  engineerPage: async ({ browser }, callback) => {
     const context = await browser.newContext({
       storageState: path.join(STORAGE_STATE_DIR, "engineer.json"),
     });
     const page = await context.newPage();
-    await use(page as any);
+    await callback(page);
     await context.close();
   },
 
   // Admin authenticated context
-  adminPage: async ({ browser }, use) => {
+  adminPage: async ({ browser }, callback) => {
     const context = await browser.newContext({
       storageState: path.join(STORAGE_STATE_DIR, "admin.json"),
     });
     const page = await context.newPage();
-    await use(page as any);
+    await callback(page);
     await context.close();
   },
 });
@@ -99,12 +99,12 @@ export const pages = {
 /**
  * Common test actions
  */
-export async function waitForPageLoad(page: any) {
+export async function waitForPageLoad(page: Page) {
   await page.waitForLoadState("networkidle");
 }
 
 export async function selectFromDropdown(
-  page: any,
+  page: Page,
   triggerText: string,
   optionText: string
 ) {
@@ -112,7 +112,7 @@ export async function selectFromDropdown(
   await page.getByRole("option", { name: optionText }).click();
 }
 
-export async function fillForm(page: any, fields: Record<string, string>) {
+export async function fillForm(page: Page, fields: Record<string, string>) {
   for (const [label, value] of Object.entries(fields)) {
     const input = page.getByLabel(new RegExp(label, "i"));
     await input.fill(value);

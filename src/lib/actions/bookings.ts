@@ -6,6 +6,7 @@ import { requireUser, requireRole } from "@/lib/auth";
 import { bookingSchema } from "@/lib/validations";
 import { generateBookingReference } from "@/lib/utils";
 import { calculateDynamicPrice, calculateDuration, getAvailableDiscount as getPricing } from "@/lib/pricing";
+import { autoAllocateBookingV2 } from "@/lib/scheduling/v2";
 import type { BookingStatus } from "@prisma/client";
 import type { BookingWithRelations, CreateBookingInput } from "@/types";
 
@@ -278,143 +279,6 @@ export async function getBookingById(
   return booking;
 }
 
-// Convert time slot to AM/PM period
-function getSlotPeriod(slot: string): "AM" | "PM" {
-  // Handle time-based slots (e.g., "10:00", "14:00")
-  if (slot.includes(":")) {
-    const hour = parseInt(slot.split(":")[0], 10);
-    return hour < 12 ? "AM" : "PM";
-  }
-  // Handle period-based slots
-  if (slot === "AM" || slot === "PM") {
-    return slot;
-  }
-  // Default to AM for unknown formats
-  return "AM";
-}
-
-// Find the best available engineer for a booking
-async function findAvailableEngineer(
-  serviceId: string,
-  sitePostcode: string,
-  scheduledDate: Date,
-  slot: string
-): Promise<string | null> {
-  console.log(`[Auto-Allocation] Finding engineer for service=${serviceId}, postcode=${sitePostcode}, date=${scheduledDate.toISOString()}, slot=${slot}`);
-
-  // Extract postcode prefix (e.g., "SW1A" from "SW1A 1AA")
-  const cleanPostcode = sitePostcode.replace(/\s/g, "").toUpperCase();
-  const postcodePrefix = cleanPostcode.length > 3 ? cleanPostcode.slice(0, -3) : cleanPostcode;
-
-  // Build a list of postcode prefixes to check (most specific to least)
-  const postcodePrefixes = [
-    postcodePrefix,                    // e.g., "SW1A"
-    postcodePrefix.slice(0, 3),        // e.g., "SW1"
-    postcodePrefix.slice(0, 2),        // e.g., "SW"
-    postcodePrefix.slice(0, 1),        // e.g., "S"
-  ].filter((p, i, arr) => p.length > 0 && arr.indexOf(p) === i); // Remove duplicates and empty
-
-  console.log(`[Auto-Allocation] Checking postcode prefixes: ${postcodePrefixes.join(", ")}`);
-
-  // Get the slot period for availability checking
-  const slotPeriod = getSlotPeriod(slot);
-  console.log(`[Auto-Allocation] Slot "${slot}" mapped to period "${slotPeriod}"`);
-
-  // Find engineers who:
-  // 1. Have APPROVED status
-  // 2. Have competency for this service
-  // 3. Cover this postcode area
-  const eligibleEngineers = await db.engineerProfile.findMany({
-    where: {
-      status: "APPROVED",
-      competencies: {
-        some: { serviceId },
-      },
-      coverageAreas: {
-        some: {
-          postcodePrefix: {
-            in: postcodePrefixes,
-          },
-        },
-      },
-    },
-    include: {
-      user: true,
-      availability: {
-        where: {
-          date: scheduledDate,
-        },
-      },
-    },
-  });
-
-  console.log(`[Auto-Allocation] Found ${eligibleEngineers.length} eligible engineers`);
-
-  if (eligibleEngineers.length === 0) {
-    // Debug: Check what's missing
-    const allProfiles = await db.engineerProfile.count({ where: { status: "APPROVED" } });
-    const withService = await db.engineerProfile.count({
-      where: { status: "APPROVED", competencies: { some: { serviceId } } },
-    });
-    console.log(`[Auto-Allocation] Debug: ${allProfiles} approved profiles, ${withService} have this service competency`);
-    return null;
-  }
-
-  // Check which engineers are available (not already booked for this time)
-  const dateStart = new Date(scheduledDate);
-  dateStart.setHours(0, 0, 0, 0);
-  const dateEnd = new Date(scheduledDate);
-  dateEnd.setHours(23, 59, 59, 999);
-
-  // Check for existing bookings at the same time OR in the same period
-  const existingBookings = await db.booking.findMany({
-    where: {
-      scheduledDate: { gte: dateStart, lte: dateEnd },
-      engineerId: { not: null },
-      status: { in: ["CONFIRMED", "IN_PROGRESS"] },
-    },
-    select: { engineerId: true, slot: true },
-  });
-
-  // Build a map of booked engineer IDs for this slot
-  const bookedEngineerIds = new Set<string>();
-  for (const booking of existingBookings) {
-    // Check if booking conflicts with our slot
-    const bookingPeriod = getSlotPeriod(booking.slot);
-    if (booking.slot === slot || bookingPeriod === slotPeriod) {
-      if (booking.engineerId) {
-        bookedEngineerIds.add(booking.engineerId);
-      }
-    }
-  }
-
-  console.log(`[Auto-Allocation] ${bookedEngineerIds.size} engineers already booked for this slot`);
-
-  // Find first available engineer
-  for (const engineer of eligibleEngineers) {
-    // Skip if already booked
-    if (bookedEngineerIds.has(engineer.userId)) {
-      console.log(`[Auto-Allocation] ${engineer.user.name} already booked, skipping`);
-      continue;
-    }
-
-    // Check if they have availability set (and it's true) or no availability set (assume available)
-    const availabilityRecord = engineer.availability.find(a =>
-      a.date.toDateString() === scheduledDate.toDateString()
-    );
-
-    if (!availabilityRecord || availabilityRecord.isAvailable) {
-      console.log(`[Auto-Allocation] Selected: ${engineer.user.name} (${engineer.userId})`);
-      return engineer.userId;
-    } else {
-      console.log(`[Auto-Allocation] ${engineer.user.name} marked as unavailable, skipping`);
-    }
-  }
-
-  console.log(`[Auto-Allocation] No available engineer found`);
-  return null;
-}
-
 export async function createBooking(
   input: CreateBookingInput
 ): Promise<{ success: boolean; data?: BookingWithRelations; error?: string }> {
@@ -477,14 +341,7 @@ export async function createBooking(
     // Calculate estimated duration
     const duration = calculateDuration(service, validated.estimatedQty);
 
-    // Auto-assign an available engineer
-    const assignedEngineerId = await findAvailableEngineer(
-      validated.serviceId,
-      site.postcode,
-      validated.scheduledDate,
-      validated.slot
-    );
-
+    // Create booking as PENDING, then auto-allocate with V2
     const booking = await db.booking.create({
       data: {
         reference: generateBookingReference(),
@@ -499,9 +356,7 @@ export async function createBooking(
         discountPercent: pricing.discountPercent,
         estimatedDuration: duration.estimatedMinutes,
         notes: validated.notes,
-        // Auto-assign engineer and set status to CONFIRMED if engineer found
-        engineerId: assignedEngineerId,
-        status: assignedEngineerId ? "CONFIRMED" : "PENDING",
+        status: "PENDING",
       },
       include: {
         customer: true,
@@ -512,11 +367,27 @@ export async function createBooking(
       },
     });
 
+    // V2 auto-allocation: scores all eligible engineers and assigns the best
+    const allocationResult = await autoAllocateBookingV2(booking.id);
+
     revalidatePath("/dashboard");
     revalidatePath("/bookings");
-    if (assignedEngineerId) {
+
+    if (allocationResult.success) {
+      // Re-fetch to get the updated booking with assigned engineer
+      const updatedBooking = await db.booking.findUnique({
+        where: { id: booking.id },
+        include: {
+          customer: true,
+          site: true,
+          service: true,
+          engineer: true,
+          assets: true,
+        },
+      });
       revalidatePath("/engineer");
       revalidatePath("/engineer/jobs");
+      return { success: true, data: updatedBooking! };
     }
 
     return { success: true, data: booking };
@@ -922,14 +793,7 @@ export async function createProvisionalBooking(
     const provisionalUntil = new Date();
     provisionalUntil.setDate(provisionalUntil.getDate() + daysUntilConfirm);
 
-    // Auto-assign an available engineer
-    const assignedEngineerId = await findAvailableEngineer(
-      validated.serviceId,
-      site.postcode,
-      validated.scheduledDate,
-      validated.slot
-    );
-
+    // Create provisional booking as PENDING, then auto-allocate with V2
     const booking = await db.booking.create({
       data: {
         reference: generateBookingReference(),
@@ -944,8 +808,7 @@ export async function createProvisionalBooking(
         discountPercent: pricing.discountPercent,
         estimatedDuration: duration.estimatedMinutes,
         notes: validated.notes,
-        engineerId: assignedEngineerId,
-        status: assignedEngineerId ? "CONFIRMED" : "PENDING",
+        status: "PENDING",
         isProvisional: true,
         provisionalUntil,
       },
@@ -958,11 +821,26 @@ export async function createProvisionalBooking(
       },
     });
 
+    // V2 auto-allocation
+    const allocationResult = await autoAllocateBookingV2(booking.id);
+
     revalidatePath("/dashboard");
     revalidatePath("/bookings");
-    if (assignedEngineerId) {
+
+    if (allocationResult.success) {
+      const updatedBooking = await db.booking.findUnique({
+        where: { id: booking.id },
+        include: {
+          customer: true,
+          site: true,
+          service: true,
+          engineer: true,
+          assets: true,
+        },
+      });
       revalidatePath("/engineer");
       revalidatePath("/engineer/jobs");
+      return { success: true, data: updatedBooking! };
     }
 
     return { success: true, data: booking };
@@ -1061,14 +939,7 @@ export async function shiftProvisionalBooking(
       booking.estimatedQty
     );
 
-    // Find available engineer for new slot
-    const newEngineerId = await findAvailableEngineer(
-      booking.serviceId,
-      booking.site.postcode,
-      newDate,
-      newSlot
-    );
-
+    // Update date/slot and reset to PENDING for re-allocation
     await db.booking.update({
       where: { id: bookingId },
       data: {
@@ -1077,10 +948,13 @@ export async function shiftProvisionalBooking(
         quotedPrice: pricing.discountedPrice,
         originalPrice: pricing.originalPrice,
         discountPercent: pricing.discountPercent,
-        engineerId: newEngineerId,
-        status: newEngineerId ? "CONFIRMED" : "PENDING",
+        engineerId: null,
+        status: "PENDING",
       },
     });
+
+    // V2 auto-allocation for the new date/slot
+    await autoAllocateBookingV2(bookingId);
 
     revalidatePath("/admin/bookings");
     revalidatePath(`/admin/bookings/${bookingId}`);
