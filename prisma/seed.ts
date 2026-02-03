@@ -33,26 +33,26 @@ function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-// UK Cities with realistic postcodes
+// UK Cities with realistic postcodes and centre coordinates
 const UK_REGIONS = [
   // London - 10 customers
-  { city: "London", postcodes: ["SW1A 1AA", "EC2A 1NT", "W1D 3QF", "SE1 9SG", "NW1 6XE", "E1 6AN", "N1 9GU", "WC2N 5DU", "W2 1JB", "SW3 1AA"] },
+  { city: "London", lat: 51.5074, lng: -0.1278, postcodes: ["SW1A 1AA", "EC2A 1NT", "W1D 3QF", "SE1 9SG", "NW1 6XE", "E1 6AN", "N1 9GU", "WC2N 5DU", "W2 1JB", "SW3 1AA"] },
   // Manchester - 3 customers
-  { city: "Manchester", postcodes: ["M1 2WD", "M2 5DB", "M4 1HQ"] },
+  { city: "Manchester", lat: 53.4808, lng: -2.2426, postcodes: ["M1 2WD", "M2 5DB", "M4 1HQ"] },
   // Birmingham - 3 customers
-  { city: "Birmingham", postcodes: ["B1 1RS", "B2 4QA", "B3 3HJ"] },
+  { city: "Birmingham", lat: 52.4862, lng: -1.8904, postcodes: ["B1 1RS", "B2 4QA", "B3 3HJ"] },
   // Leeds - 2 customers
-  { city: "Leeds", postcodes: ["LS1 4AP", "LS2 7EW"] },
+  { city: "Leeds", lat: 53.8008, lng: -1.5491, postcodes: ["LS1 4AP", "LS2 7EW"] },
   // Edinburgh - 2 customers
-  { city: "Edinburgh", postcodes: ["EH1 1YS", "EH2 4RG"] },
+  { city: "Edinburgh", lat: 55.9533, lng: -3.1883, postcodes: ["EH1 1YS", "EH2 4RG"] },
   // Bristol - 2 customers
-  { city: "Bristol", postcodes: ["BS1 4QA", "BS2 0JA"] },
+  { city: "Bristol", lat: 51.4545, lng: -2.5879, postcodes: ["BS1 4QA", "BS2 0JA"] },
   // Cardiff - 1 customer
-  { city: "Cardiff", postcodes: ["CF10 1EP"] },
+  { city: "Cardiff", lat: 51.4816, lng: -3.1791, postcodes: ["CF10 1EP"] },
   // Newcastle - 1 customer
-  { city: "Newcastle", postcodes: ["NE1 4ST"] },
+  { city: "Newcastle", lat: 54.9783, lng: -1.6178, postcodes: ["NE1 4ST"] },
   // Southampton - 1 customer
-  { city: "Southampton", postcodes: ["SO14 2AQ"] },
+  { city: "Southampton", lat: 50.9097, lng: -1.4044, postcodes: ["SO14 2AQ"] },
 ];
 
 const COMPANY_NAMES = [
@@ -343,6 +343,8 @@ async function main() {
       name: "Acme HQ",
       address: "123 Business Street, London",
       postcode: "SW1A 1AA",
+      latitude: 51.5014,
+      longitude: -0.1419,
       profile: {
         create: {
           buildingType: "OFFICE",
@@ -369,6 +371,8 @@ async function main() {
       name: "Acme Warehouse",
       address: "45 Industrial Road, London",
       postcode: "SW1A 2AA",
+      latitude: 51.4952,
+      longitude: -0.1351,
       profile: {
         create: {
           buildingType: "WAREHOUSE",
@@ -705,12 +709,18 @@ async function main() {
         const industryType = randomElement(INDUSTRY_TYPES);
         const siteName = s === 0 ? `${region.city} HQ` : `${region.city} ${["Branch", "Warehouse", "Store", "Office"][s % 4]} ${s}`;
 
+        // Offset lat/lng slightly for each site (within ~2km of city centre)
+        const siteLat = region.lat + (Math.random() - 0.5) * 0.03;
+        const siteLng = region.lng + (Math.random() - 0.5) * 0.05;
+
         const site = await prisma.site.create({
           data: {
             userId: customer.id,
             name: siteName,
             address: `${randomInt(1, 200)} ${["High Street", "Business Park", "Industrial Estate", "Commercial Road", "Market Square"][s % 5]}, ${region.city}`,
             postcode: postcode.replace(/\d[A-Z]{2}$/, `${randomInt(1, 9)}${["AA", "AB", "BA", "BB"][s % 4]}`),
+            latitude: siteLat,
+            longitude: siteLng,
             profile: {
               create: {
                 buildingType,
@@ -946,6 +956,7 @@ async function main() {
         originalPrice: basePrice,
         discountPercent: 10,
         estimatedDuration: Math.ceil(service.baseMinutes + service.minutesPerUnit * qty),
+        enRouteAt: ["EN_ROUTE", "ON_SITE", "IN_PROGRESS", "COMPLETED"].includes(status) ? date : null,
         startedAt: status === "IN_PROGRESS" || status === "COMPLETED" || status === "ON_SITE" ? date : null,
         completedAt: status === "COMPLETED" ? date : null,
         arrivedAt: status === "ON_SITE" || status === "IN_PROGRESS" || status === "COMPLETED" ? date : null,
@@ -956,14 +967,14 @@ async function main() {
   // Today's jobs for demo engineer (make it look busy!)
   const demoToday = startOfDay(new Date());
 
-  // Morning job - IN_PROGRESS (currently working on)
-  await createDemoEngineerBooking(demoToday, "AM", "IN_PROGRESS", 0, 0);
+  // Morning job - EN_ROUTE (currently tracking / driving)
+  await createDemoEngineerBooking(demoToday, "AM", "EN_ROUTE", 0, 0);
 
   // Another morning job - CONFIRMED (next up)
   await createDemoEngineerBooking(demoToday, "AM", "CONFIRMED", 1, 1);
 
-  // Afternoon jobs - CONFIRMED
-  await createDemoEngineerBooking(demoToday, "PM", "CONFIRMED", 2, 0);
+  // Afternoon jobs - ON_SITE (arrived, detecting activity) and CONFIRMED
+  await createDemoEngineerBooking(demoToday, "PM", "ON_SITE", 2, 0);
   await createDemoEngineerBooking(demoToday, "PM", "CONFIRMED", 0, 1);
 
   // Tomorrow's jobs
@@ -1003,6 +1014,99 @@ async function main() {
   }
 
   console.log("✅ Created demo engineer's schedule with 20+ jobs\n");
+
+  // =====================
+  // CREATE AVAILABLE (UNASSIGNED) JOBS FOR THIS WEEK
+  // =====================
+  console.log("📋 Creating available jobs for engineers...");
+
+  const availableJobCount = 8;
+  for (let i = 0; i < availableJobCount; i++) {
+    const dayOffset = randomInt(0, 6); // This week
+    let availDate = addDays(demoToday, dayOffset);
+    // Skip weekends
+    if (availDate.getDay() === 0) availDate = addDays(availDate, 1);
+    if (availDate.getDay() === 6) availDate = addDays(availDate, 2);
+
+    const { site, customer } = randomElement(allSites);
+    const service = randomElement(services);
+    const qty = randomInt(15, 80);
+    const basePrice = Math.max(service.basePrice * qty, service.minCharge);
+
+    await prisma.booking.create({
+      data: {
+        reference: generateBookingRef(),
+        customerId: customer.id,
+        siteId: site.id,
+        serviceId: service.id,
+        engineerId: null, // Unassigned!
+        status: "PENDING",
+        scheduledDate: availDate,
+        slot: randomElement(slots),
+        estimatedQty: qty,
+        quotedPrice: basePrice,
+        originalPrice: basePrice,
+        discountPercent: 0,
+        estimatedDuration: Math.ceil(service.baseMinutes + service.minutesPerUnit * qty),
+      },
+    });
+  }
+
+  console.log(`✅ Created ${availableJobCount} available jobs for this week\n`);
+
+  // =====================
+  // CREATE NOTIFICATIONS
+  // =====================
+  console.log("🔔 Creating notifications...");
+
+  // Notifications for demo customer
+  const customerNotifications = [
+    { type: "BOOKING_UPDATE", title: "Engineer en route", body: "James Mitchell is on the way to Acme HQ for your PAT Testing appointment.", hoursAgo: 1 },
+    { type: "BOOKING_UPDATE", title: "Job started", body: "PAT Testing has started at Acme HQ. Estimated completion: 3 hours.", hoursAgo: 0.5 },
+    { type: "BOOKING_UPDATE", title: "Job completed", body: "Emergency Lighting testing at Acme Warehouse is complete. Certificate available.", hoursAgo: 24 },
+    { type: "BOOKING_UPDATE", title: "Engineer arrived", body: "Mike Thompson has arrived at Acme Warehouse for Fixed Wire Testing.", hoursAgo: 48 },
+    { type: "REMINDER", title: "PAT Testing due in 28 days", body: "Your annual PAT Testing at Acme HQ is due soon. Book now to stay compliant.", hoursAgo: 72 },
+    { type: "BOOKING_UPDATE", title: "Booking confirmed", body: "Your Fire Alarm Testing at Acme HQ has been confirmed for next Tuesday AM.", hoursAgo: 96 },
+  ];
+
+  for (const n of customerNotifications) {
+    await prisma.notification.create({
+      data: {
+        userId: demoCustomer.id,
+        type: n.type,
+        title: n.title,
+        body: n.body,
+        actionUrl: "/bookings",
+        readAt: n.hoursAgo > 48 ? new Date() : null, // Older ones are read
+        createdAt: new Date(Date.now() - n.hoursAgo * 3600000),
+      },
+    });
+  }
+
+  // Notifications for demo engineer
+  const engineerNotifications = [
+    { type: "NEW_JOB", title: "New job assigned", body: "PAT Testing at Acme HQ has been assigned to you for today.", hoursAgo: 8 },
+    { type: "SCHEDULE_CHANGE", title: "Schedule updated", body: "Your afternoon job at Acme Warehouse has been moved to PM slot.", hoursAgo: 24 },
+    { type: "NEW_JOB", title: "New job available", body: "Fire Alarm Testing in SW1 is available for tomorrow. Tap to accept.", hoursAgo: 12 },
+    { type: "REMINDER", title: "Tomorrow's schedule", body: "You have 3 jobs scheduled for tomorrow. First job: 8:00 AM at Acme HQ.", hoursAgo: 16 },
+    { type: "BOOKING_UPDATE", title: "Job completed confirmation", body: "PAT Testing at Acme Warehouse marked as complete. Certificate generated.", hoursAgo: 48 },
+  ];
+
+  for (const n of engineerNotifications) {
+    await prisma.notification.create({
+      data: {
+        userId: demoEngineer.id,
+        type: n.type,
+        title: n.title,
+        body: n.body,
+        actionUrl: "/engineer",
+        readAt: n.hoursAgo > 24 ? new Date() : null,
+        createdAt: new Date(Date.now() - n.hoursAgo * 3600000),
+      },
+    });
+  }
+
+  console.log(`✅ Created ${customerNotifications.length + engineerNotifications.length} notifications\n`);
 
   // =====================
   // CREATE COMPLIANCE REMINDERS
@@ -1092,8 +1196,10 @@ async function main() {
   console.log(`Engineers:            ${engineers.length}`);
   console.log(`Customers:            ${customers.length}`);
   console.log(`Customer Metrics:     ${metricsCreated}`);
-  console.log(`Sites:                ${allSites.length}`);
+  console.log(`Sites:                ${allSites.length} (all with lat/lng)`);
   console.log(`Bookings:             ${bookings.length}`);
+  console.log(`Available Jobs:       8 (unassigned this week)`);
+  console.log(`Notifications:        11 (6 customer + 5 engineer)`);
   console.log(`Compliance Reminders: ${remindersCreated}`);
   console.log("═".repeat(50));
   console.log("\n✅ Database seeded successfully!");
