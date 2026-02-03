@@ -20,6 +20,7 @@ export function AllocationExplanation({ bookingId }: AllocationExplanationProps)
     setLoading(true);
     getBookingAllocationExplanation(bookingId)
       .then(setData)
+      .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, [bookingId]);
 

@@ -11,7 +11,6 @@ import {
   CheckCircle,
   ExternalLink,
   Loader2,
-  Play,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useJobTracking } from "@/hooks/use-job-tracking";

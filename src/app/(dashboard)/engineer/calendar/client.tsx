@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { BottomNav } from "@/components/engineer/mobile/bottom-nav";
 import { Button } from "@/components/ui/button";
-import { formatDate, getSlotTime } from "@/lib/utils";
 
 interface CalendarJob {
   id: string;

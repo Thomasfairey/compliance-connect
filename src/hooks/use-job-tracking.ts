@@ -122,13 +122,13 @@ export function useJobTracking({
     async (position: GeolocationPosition) => {
       const { latitude: engLat, longitude: engLng } = position.coords;
 
-      if (!hasSiteCoords) return;
+      if (!hasSiteCoords || siteLatitude === null || siteLongitude === null) return;
 
       const distance = haversineDistanceMeters(
         engLat,
         engLng,
-        siteLatitude!,
-        siteLongitude!
+        siteLatitude,
+        siteLongitude
       );
       setCurrentDistance(Math.round(distance));
 
